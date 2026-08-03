@@ -28,15 +28,27 @@
 - **可复用经验**：品类字段、站点 adapter、URL 机型匹配、豆包检索、Excel/Vote。  
 - **不继承**：Infini、RAG 多引擎、全局可变 `out_dir`、单证据主键、Excel 回读 SoT、硬性 5 源上限。
 
-## 下一步（实现）
-
-按 [TECHNICAL_DESIGN.md §13](docs/TECHNICAL_DESIGN.md) 顺序落地：数据底座 → 品类编译器与三模板 → Collect → Extract → Verify → Backfill → Excel/Vote → Review/Gold → V1 迁移与品类插件契约测试。
+## 快速开始（M1 骨架）
 
 ```bash
-# 文档就绪后（实现阶段）预期命令形态：
-# python -m terminal_insight_v2.cli category compile --template category_templates/phone.xlsx
-# python -m terminal_insight_v2.cli run --category phone --stage all
+cd terminal-insight-v2
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+cp .env.example .env
+
+python -m terminal_insight_v2.cli init
+python -m terminal_insight_v2.cli run \
+  --category phone --start 2026-07-01 --end 2026-07-31 \
+  --stages collect,extract
+
+pytest -q
 ```
+
+当前阶段实现为 stub（ledger / steps 可跑通）；真实 Collect/Extract 见里程碑 M2+。
+
+## 下一步（实现）
+
+按 [TECHNICAL_DESIGN.md §13](docs/TECHNICAL_DESIGN.md) 顺序落地：~~数据底座~~ → 品类编译器与三模板 → Collect → Extract → Verify → Backfill → Excel/Vote → Review/Gold → V1 迁移与品类插件契约测试。
 
 ## 状态
 
@@ -45,4 +57,5 @@
 | 架构设计 | 已完成 |
 | 技术设计 | 已完成 |
 | 品类模板协议 | 已完成 |
-| 可运行代码 | 未开始（见技术方案里程碑） |
+| M1 数据底座 | 已完成（SQLite / blobs / run ledger / CLI stub） |
+| M2+ 业务阶段 | 未开始 |
