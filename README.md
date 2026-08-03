@@ -37,6 +37,11 @@ pip install -e ".[dev]"
 cp .env.example .env
 
 python -m terminal_insight_v2.cli init
+
+# 编译品类模板（新增品类：只放入 category_templates/*.xlsx）
+python -m terminal_insight_v2.cli category compile \
+  --template category_templates/phone.xlsx
+
 python -m terminal_insight_v2.cli run \
   --category phone --start 2026-07-01 --end 2026-07-31 \
   --stages collect,extract
@@ -44,11 +49,11 @@ python -m terminal_insight_v2.cli run \
 pytest -q
 ```
 
-当前阶段实现为 stub（ledger / steps 可跑通）；真实 Collect/Extract 见里程碑 M2+。
+业务阶段（Collect/Extract…）仍为 stub；品类 Excel 编译器已可用。
 
 ## 下一步（实现）
 
-按 [TECHNICAL_DESIGN.md §13](docs/TECHNICAL_DESIGN.md) 顺序落地：~~数据底座~~ → 品类编译器与三模板 → Collect → Extract → Verify → Backfill → Excel/Vote → Review/Gold → V1 迁移与品类插件契约测试。
+按 [TECHNICAL_DESIGN.md §13](docs/TECHNICAL_DESIGN.md) 顺序落地：~~数据底座~~ → ~~品类编译器与三模板~~ → Collect → Extract → Verify → Backfill → Excel/Vote → Review/Gold → V1 迁移与完整契约测试。
 
 ## 状态
 
@@ -57,5 +62,6 @@ pytest -q
 | 架构设计 | 已完成 |
 | 技术设计 | 已完成 |
 | 品类模板协议 | 已完成 |
-| M1 数据底座 | 已完成（SQLite / blobs / run ledger / CLI stub） |
-| M2+ 业务阶段 | 未开始 |
+| M1 数据底座 | 已完成 |
+| M2a 品类编译器 | 已完成（phone/watch/glasses 模板 + gadget 契约测试） |
+| M2b Collect+ | 未开始 |
