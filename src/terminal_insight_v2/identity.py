@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import parse_qs, urlparse, urlunparse
 
@@ -116,14 +117,86 @@ def blob_id_from_sha(sha256: str) -> str:
     return f"blob:{sha256[:32]}"
 
 
+@dataclass(frozen=True)
+class UrlMatchVerdict:
+    ok: bool
+    reason: str = ""
+
+
+_NON_ALNUM = re.compile(r"[^a-z0-9]+")
+_TOKEN_SPLIT = re.compile(r"[\s\-_/·•]+")
+_SIBLING_SUFFIXES = ("proplus", "pro+", "pro", "ultra", "plus", "max", "turbo", "supreme", "leading")
+
+
+def compact_key(text: str) -> str:
+    return _NON_ALNUM.sub("", (text or "").lower())
+
+
+def model_tokens(model: str) -> list[str]:
+    out: list[str] = []
+    for raw in _TOKEN_SPLIT.split((model or "").strip()):
+        tok = compact_key(raw)
+        if len(tok) >= 2:
+            out.append(tok)
+    return out
+
+
+def page_has_sibling_upgrade(blob: str, model: str) -> bool:
+    if not blob or not model:
+        return False
+    norm = compact_key(blob)
+    key = compact_key(model)
+    if not norm or not key:
+        return False
+    for suf in _SIBLING_SUFFIXES:
+        if key.endswith(suf):
+            continue
+        if (key + suf) in norm:
+            return True
+    m = re.match(r"^((?:[a-z]+)?\d+)([a-z]{0,4})$", key)
+    if not m:
+        return False
+    base, claimed_suf = m.group(1), m.group(2)
+    if not claimed_suf:
+        for probe in ("pro", "ultra", "plus", "max", "e", "s", "t", "i"):
+            if (base + probe) in norm:
+                return True
+    return False
+
+
+def blob_matches_model(blob: str, brand: str, model: str) -> UrlMatchVerdict:
+    """Heuristic: page text must mention target model."""
+    text = f"{blob or ''}"
+    if not model.strip():
+        return UrlMatchVerdict(True, reason="empty_model_skip")
+    norm = compact_key(text)
+    key = compact_key(model)
+    brand_key = compact_key(brand)
+    if not key:
+        return UrlMatchVerdict(True, reason="empty_key")
+    if key not in norm:
+        toks = model_tokens(model)
+        if not (toks and all(t in norm for t in toks)):
+            return UrlMatchVerdict(False, reason="model_not_found")
+    if page_has_sibling_upgrade(text, model):
+        return UrlMatchVerdict(False, reason="sibling_upgrade")
+    if brand_key and len(brand_key) >= 2 and brand_key not in norm:
+        return UrlMatchVerdict(True, reason="brand_soft_miss")
+    return UrlMatchVerdict(True, reason="ok")
+
+
 __all__ = [
+    "UrlMatchVerdict",
     "base_model_name",
     "blob_id_from_sha",
+    "blob_matches_model",
     "brand_norm",
     "canonical_brand",
+    "compact_key",
     "content_sha256",
     "device_id",
     "model_norm",
+    "model_tokens",
     "normalize_url",
     "source_id",
 ]

@@ -26,9 +26,13 @@ terminal-insight-v2/
 │   └── glasses.xlsx
 ├── src/terminal_insight_v2/
 │   ├── __init__.py
-│   ├── cli.py                   # run --stage …
+│   ├── cli.py                   # run --stage … / gui
 │   ├── config.py
 │   ├── orchestrator.py
+│   ├── gui/                     # PyWebView 桌面壳（MVP）
+│   │   ├── api.py               # JS bridge → orchestrator / store
+│   │   ├── server.py
+│   │   └── static/
 │   ├── category/
 │   │   ├── compiler.py          # Excel → category-schema.json
 │   │   ├── loader.py            # 发现 / 校验 / 缓存 Schema

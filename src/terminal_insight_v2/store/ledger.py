@@ -192,6 +192,66 @@ def get_run(run_id: str, *, root: Optional[Path] = None) -> Optional[Dict[str, A
         return dict(row)
 
 
+def list_runs(
+    *,
+    limit: int = 50,
+    category: str = "",
+    root: Optional[Path] = None,
+) -> List[Dict[str, Any]]:
+    """Return recent pipeline runs (newest first).
+
+    Prefers SQLite ledger; falls back to scanning ``data/runs/*/run.json``
+    when the DB has no rows (e.g. copied artifacts).
+    """
+    limit = max(1, min(int(limit or 50), 200))
+    rows: List[Dict[str, Any]] = []
+    try:
+        with connection(readonly=True, root=root) as conn:
+            if category:
+                cur = conn.execute(
+                    """
+                    SELECT * FROM pipeline_runs
+                    WHERE category=?
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                    """,
+                    (category, limit),
+                )
+            else:
+                cur = conn.execute(
+                    """
+                    SELECT * FROM pipeline_runs
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                    """,
+                    (limit,),
+                )
+            rows = [dict(r) for r in cur.fetchall()]
+    except Exception:
+        rows = []
+    if rows:
+        return rows
+
+    # Filesystem fallback
+    runs_root = settings.runs_root()
+    if not runs_root.is_dir():
+        return []
+    found: List[Dict[str, Any]] = []
+    for run_json in sorted(runs_root.glob("*/run.json"), reverse=True):
+        try:
+            meta = json.loads(run_json.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(meta, dict):
+            continue
+        if category and meta.get("category") != category:
+            continue
+        found.append(meta)
+        if len(found) >= limit:
+            break
+    return found
+
+
 def list_stage_runs(run_id: str, *, root: Optional[Path] = None) -> List[Dict[str, Any]]:
     with connection(readonly=True, root=root) as conn:
         rows = conn.execute(
@@ -222,6 +282,7 @@ __all__ = [
     "finish_run",
     "finish_stage",
     "get_run",
+    "list_runs",
     "list_stage_runs",
     "set_backfill_round",
     "start_stage",

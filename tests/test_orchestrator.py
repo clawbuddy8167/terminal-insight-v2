@@ -29,14 +29,14 @@ def test_run_pipeline_stubs(tmp_path: Path, monkeypatch):
 
     result = run_pipeline(
         category="phone",
-        stages=["collect", "extract"],
+        stages=["vote"],
         date_start="2026-07-01",
         date_end="2026-07-31",
         schema_fingerprint="fp",
         root=s.memory_root(),
     )
     assert result["status"] == "ok"
-    assert len(result["stages"]) == 2
+    assert len(result["stages"]) == 1
     assert all(x["status"] == "skipped" for x in result["stages"])
     assert (Path(result["run_dir"]) / "steps.json").exists()
     assert (Path(result["run_dir"]) / "run.json").exists()

@@ -5,7 +5,11 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -15,7 +19,25 @@ class Settings(BaseSettings):
         env_file=str(PROJECT_ROOT / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        # Prefer project .env over ambient shell env (Cursor often injects stale keys).
+        return (
+            init_settings,
+            dotenv_settings,
+            env_settings,
+            file_secret_settings,
+        )
 
     category: str = "phone"
     date_start: str = ""
@@ -24,15 +46,33 @@ class Settings(BaseSettings):
     template_dir: str = "category_templates"
     extract_target_sources: int = 10
     backfill_max_rounds: int = 3
+    backfill_urls_per_device: int = 4
+    backfill_queries_per_device: int = 3
     collect_max_workers: int = 4
+    extract_max_workers: int = 4
+    collect_fetch_workers: int = 4
+    collect_max_urls_per_device: int = 8
+    discover_max_workers: int = 4
     doubao_max_qps: float = 4.0
     report_mode: Literal["research", "gold"] = "research"
 
     doubao_api_key: str = ""
+    doubao_max_results: int = 10
+    doubao_timeout: float = 60.0
+    doubao_max_retries: int = 3
+    doubao_content_formats: str = "text"
+    discovery_backend: str = "auto"  # auto|doubao|tavily
+    tavily_api_key: str = ""
+    tavily_max_results: int = 8
+    tavily_search_depth: str = "advanced"
+    tavily_timeout: float = 60.0
     openai_api_key: str = ""
-    openai_base_url: str = ""
-    openai_model: str = ""
+    openai_base_url: str = "https://api.deepseek.com/v1"
+    openai_model: str = "deepseek-v4-pro"
     openai_timeout: float = 120.0
+    http_timeout: float = 30.0
+    jina_reader_enabled: bool = True
+    fetch_min_body_len: int = 300
 
     memory_db_path: str = ""  # empty → data/memory/facts.db
 

@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terminal Insight v2</title>
+<script src="vue.global.prod.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: #fafafa; color: #1a1a1a; font-size: 14px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  #app { display: flex; flex-direction: column; height: 100vh; }
+  header {
+    background: #fff; padding: 10px 20px;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid #eee; flex-wrap: wrap;
+  }
+  header h1 { font-size: 15px; font-weight: 600; color: #111; }
+  header .sub { font-size: 12px; color: #999; }
+  header .sub.running { color: #2563eb; }
+  header .sub.error { color: #e53e3e; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .spacer { flex: 1; }
+  .icon-btn, .cat-select {
+    background: none; border: 1px solid #ddd; color: #666; cursor: pointer;
+    font-size: 13px; padding: 4px 10px; border-radius: 6px;
+  }
+  .icon-btn:hover { background: #f0f0f0; color: #111; }
+  .icon-btn:disabled { opacity: .35; cursor: not-allowed; }
+  .cat-select { width: auto; background: #fff; color: #333; }
+  .hdr-dates {
+    display: flex; align-items: center; gap: 6px; font-size: 12px; color: #666;
+  }
+  .hdr-dates label { margin: 0; color: #999; white-space: nowrap; }
+  .hdr-dates input[type="date"] {
+    width: auto; min-width: 132px; font-size: 12px;
+    padding: 3px 6px; border: 1px solid #ddd; border-radius: 5px;
+  }
+  .main { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+  .card {
+    background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 14px 16px;
+  }
+  .card-title {
+    font-size: 12px; font-weight: 600; color: #888; letter-spacing: .03em;
+    margin-bottom: 10px; text-transform: uppercase;
+  }
+  .stages { display: flex; gap: 6px; flex-wrap: wrap; }
+  .stage {
+    flex: 1; min-width: 110px; padding: 10px 12px;
+    border: 1px solid #eee; border-radius: 6px;
+    background: #fafafa; cursor: pointer; transition: all .15s; position: relative;
+  }
+  .stage:hover { border-color: #ccc; background: #f5f5f5; }
+  .stage .name { font-size: 13px; font-weight: 500; color: #333; }
+  .stage .stat { font-size: 11px; color: #999; margin-top: 2px; }
+  .stage .dot {
+    position: absolute; top: 6px; right: 6px;
+    width: 6px; height: 6px; border-radius: 50%; background: #ddd;
+  }
+  .stage.running { border-color: #93c5fd; background: #f0f7ff; }
+  .stage.running .dot { background: #2563eb; animation: pulse 1s infinite; }
+  .stage.done { border-color: #bbf7d0; background: #f0fdf4; }
+  .stage.done .dot { background: #16a34a; }
+  .stage.failed { border-color: #fecaca; background: #fef2f2; }
+  .stage.failed .dot { background: #e53e3e; }
+  .stage.disabled { opacity: .45; cursor: not-allowed; }
+  .stage-hint { font-size: 11px; color: #999; margin-top: 8px; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .btn {
+    background: #111; color: #fff; border: none; border-radius: 6px;
+    padding: 6px 14px; font-size: 13px; cursor: pointer;
+  }
+  .btn:hover { opacity: .85; }
+  .btn:disabled { opacity: .3; cursor: not-allowed; }
+  .btn-outline { background: transparent; color: #333; border: 1px solid #ddd; }
+  .btn-outline:hover { border-color: #999; background: #f5f5f5; }
+  .log {
+    margin-top: 10px; max-height: 120px; overflow-y: auto;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px; color: #888;
+  }
+  .log .line { padding: 2px 0; }
+  .log .tag { color: #2563eb; }
+  .tabs { display: flex; gap: 2px; margin-bottom: 10px; }
+  .tab {
+    padding: 5px 12px; font-size: 13px; color: #999; cursor: pointer;
+    border-radius: 4px;
+  }
+  .tab.active { background: #f0f0f0; color: #111; font-weight: 500; }
+  .table-wrap { overflow-x: auto; border: 1px solid #eee; border-radius: 6px; max-height: 420px; overflow-y: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td {
+    padding: 6px 10px; text-align: left; border-bottom: 1px solid #f0f0f0;
+    white-space: nowrap; max-width: 280px; overflow: hidden; text-overflow: ellipsis;
+  }
+  th { background: #fafafa; color: #888; font-weight: 600; position: sticky; top: 0; }
+  tr:hover td { background: #fafafa; }
+  tr.active td { background: #eff6ff; }
+  .empty { color: #bbb; padding: 20px; text-align: center; font-size: 13px; }
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,.2);
+    display: flex; align-items: center; justify-content: center; z-index: 50;
+  }
+  .modal {
+    background: #fff; border-radius: 10px;
+    width: min(640px, 92vw); max-height: min(780px, 90vh);
+    display: flex; flex-direction: column;
+    box-shadow: 0 8px 40px rgba(0,0,0,.12);
+  }
+  .modal-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; border-bottom: 1px solid #eee;
+  }
+  .modal-head h2 { margin: 0; font-size: 14px; font-weight: 600; }
+  .modal-body {
+    padding: 14px 16px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .modal-foot {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 16px; border-top: 1px solid #eee; background: #fafafa;
+    border-radius: 0 0 10px 10px;
+  }
+  .section-label {
+    font-size: 11px; font-weight: 600; color: #999; text-transform: uppercase;
+    margin-bottom: 6px; letter-spacing: .04em;
+  }
+  label { display: block; font-size: 12px; color: #999; margin-bottom: 3px; }
+  input, select {
+    width: 100%; border: 1px solid #ddd; border-radius: 5px;
+    padding: 6px 9px; font-size: 13px; background: #fff; color: #333;
+  }
+  input:focus, select:focus { outline: none; border-color: #888; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .hint { font-size: 11px; color: #bbb; margin-top: 4px; }
+  .toast { font-size: 12px; color: #16a34a; }
+  .toast.err { color: #e53e3e; }
+  .pill {
+    display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 999px;
+    background: #f0f0f0; color: #555; margin-right: 4px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Terminal Insight v2</h1>
+    <select class="cat-select" v-model="cfg.category" @change="onCategoryChange" title="品类">
+      <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.label }}</option>
+    </select>
+    <div class="hdr-dates">
+      <label for="hdr-date-start">开始</label>
+      <input id="hdr-date-start" type="date" v-model="cfg.date_start" @change="persistQuick"
+             :disabled="progress.running">
+      <span style="color:#ccc">–</span>
+      <label for="hdr-date-end">结束</label>
+      <input id="hdr-date-end" type="date" v-model="cfg.date_end" @change="persistQuick"
+             :disabled="progress.running">
+    </div>
+    <span class="sub" v-if="progress.run_id" :title="progress.run_dir">run · {{ progress.run_id }}</span>
+    <span class="sub" v-if="coverage.items.length">{{ coverage.items.length }} 机</span>
+    <span v-if="progress.running" class="sub running">● {{ progress.current_stage || '…' }}</span>
+    <span v-if="progress.error" class="sub error" :title="progress.error">⚠ {{ progress.error }}</span>
+    <span class="spacer"></span>
+    <button class="icon-btn" @click="openConfig">⚙ 配置</button>
+    <button class="icon-btn" @click="openArtifact('excel')" :disabled="!progress.artifacts.excel">📋 Excel</button>
+    <button class="icon-btn" @click="openArtifact('sources')" :disabled="!progress.artifacts.sources">🔗 信源</button>
+  </header>
+
+  <div class="main">
+    <div class="card">
+      <div class="card-title">流水线</div>
+      <div class="stages">
+        <div v-for="s in stageDefs" :key="s.key" class="stage"
+             :class="[progress.stage_status[s.key] || 'pending', { disabled: progress.running }]"
+             @click="runFrom(s.key)"
+             :title="'从 ' + s.label + ' 运行到结束'">
+          <span class="dot"></span>
+          <div class="name">{{ s.label }}</div>
+          <div class="stat">{{ stageStat(s.key) }}</div>
+        </div>
+      </div>
+      <p class="stage-hint">点击某一阶段 = 从该阶段跑到结束。MVP 不支持中途停止。Resume 可在「Runs」选中历史 run 后使用。</p>
+      <div class="actions">
+        <button class="btn" @click="runAll" :disabled="progress.running">全部运行</button>
+        <button class="btn btn-outline" @click="runResume" :disabled="progress.running || !progress.run_id">
+          Resume 当前 run
+        </button>
+        <button class="btn btn-outline" @click="openArtifact('run_dir')" :disabled="!progress.run_dir">打开目录</button>
+      </div>
+      <div class="log" v-if="progress.steps.length">
+        <div class="line" v-for="(st, i) in progress.steps" :key="i">
+          <span class="tag">[{{ st.stage }}]</span>
+          {{ st.status }} · {{ stepSummary(st) }}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="tabs">
+        <div class="tab" :class="{active: tab==='coverage'}" @click="tab='coverage'; loadCoverage()">
+          覆盖率 ({{ coverage.items.length }})
+        </div>
+        <div class="tab" :class="{active: tab==='runs'}" @click="tab='runs'; loadRuns()">
+          Runs ({{ runs.length }})
+        </div>
+      </div>
+
+      <div v-if="tab==='coverage'">
+        <div class="table-wrap" v-if="coverage.items.length">
+          <table>
+            <thead>
+              <tr>
+                <th>品牌</th><th>机型</th><th>已填</th><th>总计</th><th>缺失字段</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="it in coverage.items" :key="it.device_id">
+                <td>{{ it.brand }}</td>
+                <td>{{ it.model }}</td>
+                <td>{{ it.filled }}</td>
+                <td>{{ it.total }}</td>
+                <td :title="(it.missing_fields||[]).join(', ')">
+                  {{ (it.missing_fields||[]).join(', ') || '—' }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="empty" v-else>暂无覆盖率报告（需跑到 verify）</div>
+      </div>
+
+      <div v-if="tab==='runs'">
+        <div class="actions" style="margin-top:0;margin-bottom:8px">
+          <button class="btn btn-outline" @click="loadRuns">刷新</button>
+        </div>
+        <div class="table-wrap" v-if="runs.length">
+          <table>
+            <thead>
+              <tr>
+                <th>run_id</th><th>品类</th><th>窗口</th><th>状态</th><th>创建</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in runs" :key="r.run_id"
+                  :class="{active: r.run_id === progress.run_id}"
+                  @click="selectRun(r.run_id)" style="cursor:pointer">
+                <td :title="r.run_id">{{ r.run_id }}</td>
+                <td>{{ r.category }}</td>
+                <td>{{ r.date_start }} – {{ r.date_end }}</td>
+                <td><span class="pill">{{ r.status }}</span></td>
+                <td>{{ r.created_at }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="empty" v-else>暂无 run 记录</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" v-if="showConfig" @click.self="showConfig=false">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>配置</h2>
+        <span class="spacer"></span>
+        <button class="icon-btn" @click="showConfig=false">关闭</button>
+      </div>
+      <div class="modal-body">
+        <div>
+          <div class="section-label">调研窗口</div>
+          <div class="grid2">
+            <div>
+              <label>品类</label>
+              <select v-model="cfg.category">
+                <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.label }}</option>
+              </select>
+            </div>
+            <div>
+              <label>报告模式</label>
+              <select v-model="cfg.report_mode">
+                <option value="research">research</option>
+                <option value="gold">gold</option>
+              </select>
+            </div>
+            <div>
+              <label>开始日期</label>
+              <input type="date" v-model="cfg.date_start">
+            </div>
+            <div>
+              <label>结束日期</label>
+              <input type="date" v-model="cfg.date_end">
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="section-label">模型 / 检索</div>
+          <div class="grid2">
+            <div>
+              <label>OPENAI_MODEL</label>
+              <input v-model="cfg.openai_model">
+            </div>
+            <div>
+              <label>OPENAI_BASE_URL</label>
+              <input v-model="cfg.openai_base_url">
+            </div>
+            <div>
+              <label>OPENAI_API_KEY</label>
+              <input type="password" v-model="cfg.openai_api_key" autocomplete="off">
+            </div>
+            <div>
+              <label>DISCOVERY_BACKEND</label>
+              <select v-model="cfg.discovery_backend">
+                <option value="auto">auto</option>
+                <option value="doubao">doubao</option>
+                <option value="tavily">tavily</option>
+              </select>
+            </div>
+            <div>
+              <label>DOUBAO_API_KEY</label>
+              <input type="password" v-model="cfg.doubao_api_key" autocomplete="off">
+            </div>
+            <div>
+              <label>TAVILY_API_KEY</label>
+              <input type="password" v-model="cfg.tavily_api_key" autocomplete="off">
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="section-label">并发</div>
+          <div class="grid2">
+            <div>
+              <label>COLLECT_MAX_WORKERS</label>
+              <input type="number" min="1" v-model.number="cfg.collect_max_workers">
+            </div>
+            <div>
+              <label>EXTRACT_MAX_WORKERS</label>
+              <input type="number" min="1" v-model.number="cfg.extract_max_workers">
+            </div>
+            <div>
+              <label>BACKFILL_MAX_ROUNDS</label>
+              <input type="number" min="0" v-model.number="cfg.backfill_max_rounds">
+            </div>
+          </div>
+          <p class="hint">保存后写入项目根目录 .env，并立即作用于当前进程。</p>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <span class="toast" :class="{err: saveMsg.err}" v-if="saveMsg.text">{{ saveMsg.text }}</span>
+        <span class="spacer"></span>
+        <button class="btn" @click="doSave">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
+
+function api() {
+  return window.pywebview && window.pywebview.api;
+}
+
+createApp({
+  setup() {
+    const cfg = ref({
+      category: 'phone',
+      date_start: '',
+      date_end: '',
+      openai_model: '',
+      openai_base_url: '',
+      openai_api_key: '',
+      doubao_api_key: '',
+      tavily_api_key: '',
+      discovery_backend: 'auto',
+      collect_max_workers: 4,
+      extract_max_workers: 4,
+      backfill_max_rounds: 3,
+      report_mode: 'research',
+    });
+    const categories = ref([]);
+    const stageLabels = ref({});
+    const progress = ref({
+      running: false,
+      error: null,
+      run_id: '',
+      run_dir: '',
+      current_stage: null,
+      stage_status: {},
+      metrics: {},
+      steps: [],
+      artifacts: {},
+    });
+    const coverage = ref({ items: [] });
+    const runs = ref([]);
+    const tab = ref('coverage');
+    const showConfig = ref(false);
+    const saveMsg = ref({ text: '', err: false });
+    let pollTimer = null;
+
+    const stageDefs = computed(() => {
+      const keys = ['collect', 'extract', 'backfill', 'verify', 'excel', 'vote'];
+      return keys.map(k => ({ key: k, label: stageLabels.value[k] || k }));
+    });
+
+    async function loadConfig() {
+      const a = api();
+      if (!a) return;
+      const c = await a.get_config();
+      categories.value = c.categories || [];
+      stageLabels.value = c.stage_labels || {};
+      cfg.value = {
+        category: c.category || 'phone',
+        date_start: c.date_start || '',
+        date_end: c.date_end || '',
+        openai_model: c.openai_model || '',
+        openai_base_url: c.openai_base_url || '',
+        openai_api_key: c.openai_api_key || '',
+        doubao_api_key: c.doubao_api_key || '',
+        tavily_api_key: c.tavily_api_key || '',
+        discovery_backend: c.discovery_backend || 'auto',
+        collect_max_workers: c.collect_max_workers || 4,
+        extract_max_workers: c.extract_max_workers || 4,
+        backfill_max_rounds: c.backfill_max_rounds || 3,
+        report_mode: c.report_mode || 'research',
+      };
+      if (c.active_run_id) {
+        progress.value.run_id = c.active_run_id;
+      }
+    }
+
+    async function persistQuick() {
+      const a = api();
+      if (!a) return;
+      await a.save_config({
+        category: cfg.value.category,
+        date_start: cfg.value.date_start,
+        date_end: cfg.value.date_end,
+      });
+    }
+
+    async function onCategoryChange() {
+      await persistQuick();
+      await loadRuns();
+    }
+
+    function openConfig() {
+      saveMsg.value = { text: '', err: false };
+      showConfig.value = true;
+      loadConfig();
+    }
+
+    async function doSave() {
+      const a = api();
+      if (!a) return;
+      const res = await a.save_config({ ...cfg.value });
+      if (res.ok) {
+        saveMsg.value = { text: '已保存', err: false };
+        showConfig.value = false;
+      } else {
+        saveMsg.value = { text: res.error || '保存失败', err: true };
+      }
+    }
+
+    async function runAll() {
+      const a = api();
+      if (!a || progress.value.running) return;
+      await persistQuick();
+      const res = await a.run_pipeline(['all'], {
+        category: cfg.value.category,
+        date_start: cfg.value.date_start,
+        date_end: cfg.value.date_end,
+      });
+      if (!res.ok) {
+        progress.value.error = res.error;
+        return;
+      }
+      startPolling();
+    }
+
+    async function runFrom(stage) {
+      const a = api();
+      if (!a || progress.value.running) return;
+      await persistQuick();
+      const res = await a.run_from_stage(stage);
+      if (!res.ok) {
+        progress.value.error = res.error;
+        return;
+      }
+      startPolling();
+    }
+
+    async function runResume() {
+      const a = api();
+      if (!a || progress.value.running || !progress.value.run_id) return;
+      const res = await a.run_pipeline(['all'], {
+        category: cfg.value.category,
+        date_start: cfg.value.date_start,
+        date_end: cfg.value.date_end,
+        resume: progress.value.run_id,
+      });
+      if (!res.ok) {
+        progress.value.error = res.error;
+        return;
+      }
+      startPolling();
+    }
+
+    async function poll() {
+      const a = api();
+      if (!a) return;
+      const p = await a.get_progress();
+      progress.value = {
+        running: !!p.running,
+        error: p.error,
+        run_id: p.run_id || '',
+        run_dir: p.run_dir || '',
+        current_stage: p.current_stage,
+        stage_status: p.stage_status || {},
+        metrics: p.metrics || {},
+        steps: p.steps || [],
+        artifacts: p.artifacts || {},
+      };
+      if (!p.running) {
+        await loadCoverage();
+        await loadRuns();
+      }
+    }
+
+    function startPolling() {
+      stopPolling();
+      poll();
+      pollTimer = setInterval(poll, 1500);
+    }
+    function stopPolling() {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    async function loadCoverage() {
+      const a = api();
+      if (!a) return;
+      const res = await a.get_coverage(progress.value.run_id || '');
+      coverage.value.items = (res && res.items) || [];
+    }
+
+    async function loadRuns() {
+      const a = api();
+      if (!a) return;
+      const res = await a.list_runs(40, cfg.value.category || '');
+      runs.value = (res && res.runs) || [];
+    }
+
+    async function selectRun(runId) {
+      const a = api();
+      if (!a || progress.value.running) return;
+      const res = await a.select_run(runId);
+      if (!res.ok) {
+        progress.value.error = res.error;
+        return;
+      }
+      await poll();
+      await loadCoverage();
+      tab.value = 'coverage';
+    }
+
+    async function openArtifact(kind) {
+      const a = api();
+      if (!a) return;
+      const res = await a.open_artifact(kind, progress.value.run_id || '');
+      if (!res.ok) progress.value.error = res.error;
+    }
+
+    function stageStat(key) {
+      const st = progress.value.stage_status[key];
+      const m = progress.value.metrics[key] || {};
+      if (st === 'running') return '运行中';
+      if (st === 'failed') return '失败';
+      if (st !== 'done') return '待运行';
+      if (key === 'collect') return (m.devices != null) ? `${m.devices} 机` : '完成';
+      if (key === 'extract') return (m.assertions != null) ? `${m.assertions} 断言` : '完成';
+      if (key === 'backfill') return (m.rounds != null) ? `${m.rounds} 轮` : '完成';
+      if (key === 'verify') return (m.resolutions != null) ? `${m.resolutions} 决议` : '完成';
+      if (key === 'excel') return (m.rows != null) ? `${m.rows} 行` : '完成';
+      return '完成';
+    }
+
+    function stepSummary(st) {
+      const m = st.metrics || {};
+      const parts = Object.keys(m).slice(0, 4).map(k => `${k}=${m[k]}`);
+      const err = (st.errors && st.errors.length) ? ` · ${st.errors[0]}` : '';
+      return (parts.join(' ') || st.output_revision || '') + err;
+    }
+
+    onMounted(() => {
+      const wait = setInterval(async () => {
+        if (!api()) return;
+        clearInterval(wait);
+        await loadConfig();
+        await loadRuns();
+        // Prefer latest run for current category
+        if (runs.value.length) {
+          await selectRun(runs.value[0].run_id);
+        } else {
+          await poll();
+        }
+        startPolling();
+      }, 100);
+    });
+    onUnmounted(stopPolling);
+
+    return {
+      cfg, categories, stageDefs, progress, coverage, runs, tab, showConfig, saveMsg,
+      openConfig, doSave, persistQuick, onCategoryChange,
+      runAll, runFrom, runResume, openArtifact,
+      loadCoverage, loadRuns, selectRun, stageStat, stepSummary,
+    };
+  },
+}).mount('#app');
+</script>
+</body>
+</html>

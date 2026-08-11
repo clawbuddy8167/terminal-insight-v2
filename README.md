@@ -33,7 +33,7 @@
 ```bash
 cd terminal-insight-v2
 python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[dev,gui]"
 cp .env.example .env
 
 python -m terminal_insight_v2.cli init
@@ -43,13 +43,20 @@ python -m terminal_insight_v2.cli category compile \
   --template category_templates/phone.xlsx
 
 python -m terminal_insight_v2.cli run \
-  --category phone --start 2026-07-01 --end 2026-07-31 \
+  --category glasses --start 2026-01-01 --end 2026-07-31 \
   --stages collect,extract
+
+# 本地桌面 GUI（配置 / 跑流水线 / 浏览 runs 与覆盖率）
+python run_gui.py
+# 或: python -m terminal_insight_v2.gui
+# 或: python -m terminal_insight_v2.cli gui
 
 pytest -q
 ```
 
-业务阶段（Collect/Extract…）仍为 stub；品类 Excel 编译器已可用。
+Collect 阶段会：豆包发现机型 → 规划 URL → HTTP/Jina 抓取 → 写入 `data/memory/blobs/` 与 `llm-wiki/raw/`，并在 run 目录生成 `sources.html` / `collection_manifest.json`。
+
+Extract 阶段会：读取本 run 快照正文 → **每快照一次 LLM** 抽取字段 → 写入 `field_assertions` 表与 `assertions.jsonl`（每条 assertion 强制带 snippet）。Verify / Backfill 等仍为 stub。
 
 ## 下一步（实现）
 
@@ -64,4 +71,7 @@ pytest -q
 | 品类模板协议 | 已完成 |
 | M1 数据底座 | 已完成 |
 | M2a 品类编译器 | 已完成（phone/watch/glasses 模板 + gadget 契约测试） |
-| M2b Collect+ | 未开始 |
+| M2b Collect+ | **MVP 已实现**（discover + fetch + blobs + llm-wiki/raw + sources.html） |
+| M2c Extract | **MVP 已实现**（一源一 LLM 调用 → field_assertions + assertions.jsonl） |
+| M2d Verify + Excel | **MVP 已实现**（identity/evidence → Resolution → xlsx） |
+| GUI（PyWebView） | **MVP 已实现**（配置 / 跑阶段 / runs / 覆盖率 / 打开产物） |

@@ -76,6 +76,13 @@ def _cmd_category_compile(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_gui(_args: argparse.Namespace) -> int:
+    from terminal_insight_v2.gui import start
+
+    start()
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="terminal-insight-v2",
@@ -115,6 +122,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="do not write compiled JSON / DB row",
     )
     compile_p.set_defaults(func=_cmd_category_compile)
+
+    gui = sub.add_parser("gui", help="Open local desktop GUI (PyWebView)")
+    gui.set_defaults(func=_cmd_gui)
 
     return p
 

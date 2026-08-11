@@ -136,8 +136,18 @@ def run_pipeline(
             encoding="utf-8",
         )
         console.log(f"[green]{stage_name}[/] → {result.status}")
+        if stage_name == "backfill":
+            rounds = int((result.metrics or {}).get("rounds") or 0)
+            if rounds:
+                run_meta["backfill_round"] = rounds
 
-    finish_run(run_id, status="failed" if failed else "ok", root=root)
+    bf_round = int(run_meta.get("backfill_round") or 0) or None
+    finish_run(
+        run_id,
+        status="failed" if failed else "ok",
+        backfill_round=bf_round,
+        root=root,
+    )
     return {
         "run_id": run_id,
         "run_dir": str(run_dir),
