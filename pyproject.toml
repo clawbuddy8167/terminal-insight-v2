@@ -23,6 +23,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
 gui = ["pywebview>=5.0"]
+packaging = ["pywebview>=5.0", "pyinstaller>=6.0"]
 
 [project.scripts]
 terminal-insight-v2 = "terminal_insight_v2.cli:main"

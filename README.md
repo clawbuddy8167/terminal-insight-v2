@@ -51,6 +51,9 @@ python run_gui.py
 # 或: python -m terminal_insight_v2.gui
 # 或: python -m terminal_insight_v2.cli gui
 
+# Windows / macOS 打包：见 PACKAGING.md
+# pip install -e ".[packaging]" && pyinstaller build.spec --noconfirm
+
 pytest -q
 ```
 

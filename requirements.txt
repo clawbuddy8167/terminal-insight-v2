@@ -11,3 +11,6 @@ pytest>=8.0
 
 # GUI (optional): python run_gui.py
 pywebview>=5.0
+
+# Packaging (optional, build on target OS): see PACKAGING.md
+# pyinstaller>=6.0

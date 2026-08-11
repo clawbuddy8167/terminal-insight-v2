@@ -1,6 +1,7 @@
 """Runtime settings (env / .env)."""
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Literal
 
@@ -11,7 +12,15 @@ from pydantic_settings import (
     SettingsConfigDict,
 )
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+def resolve_project_root() -> Path:
+    """Repo root in dev; directory containing the frozen exe when packaged."""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parents[2]
+
+
+PROJECT_ROOT = resolve_project_root()
 
 
 class Settings(BaseSettings):
@@ -90,9 +99,17 @@ class Settings(BaseSettings):
 
     def templates_path(self) -> Path:
         p = Path(self.template_dir)
-        if not p.is_absolute():
-            p = PROJECT_ROOT / p
-        return p
+        if p.is_absolute():
+            return p
+        cand = PROJECT_ROOT / p
+        if cand.is_dir():
+            return cand
+        # Frozen onedir: bundled templates live under _MEIPASS
+        if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+            bundled = Path(sys._MEIPASS) / p
+            if bundled.is_dir():
+                return bundled
+        return cand
 
     def db_path(self) -> Path:
         raw = (self.memory_db_path or "").strip()
@@ -106,4 +123,10 @@ settings = Settings()
 
 STAGES = ("collect", "extract", "backfill", "verify", "excel", "vote")
 
-__all__ = ["PROJECT_ROOT", "STAGES", "Settings", "settings"]
+__all__ = [
+    "PROJECT_ROOT",
+    "STAGES",
+    "Settings",
+    "resolve_project_root",
+    "settings",
+]
