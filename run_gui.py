@@ -18,7 +18,12 @@ else:
     if str(SRC) not in sys.path:
         sys.path.insert(0, str(SRC))
 
-from dotenv import load_dotenv
+# Before any Rich / pipeline imports: Windows windowed exe defaults to charmap.
+from terminal_insight_v2.gui.stdio_utf8 import force_utf8_stdio  # noqa: E402
+
+force_utf8_stdio()
+
+from dotenv import load_dotenv  # noqa: E402
 
 load_dotenv(ROOT / ".env")
 

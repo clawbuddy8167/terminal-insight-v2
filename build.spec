@@ -19,11 +19,19 @@ datas = [
     (str(ROOT / "category_templates"), "category_templates"),
     (str(ROOT / ".env.example"), "."),
 ]
+# Ship Windows unblock helper next to the exe (onedir COLLECT root).
+if sys.platform.startswith("win"):
+    datas.append((str(ROOT / "scripts" / "unblock-windows.bat"), "."))
+    datas.append((str(ROOT / "scripts" / "unblock-windows.ps1"), "."))
+
 binaries = []
 hiddenimports = [
     "pywebview",
     "pywebview.platforms.cocoa",  # macOS
     "pywebview.platforms.edgechromium",  # Windows WebView2
+    "pywebview.platforms.winforms",
+    "clr_loader",
+    "pythonnet",
     "charset_normalizer",
     "openpyxl",
     "httpx",
@@ -33,6 +41,18 @@ hiddenimports = [
     "dotenv",
     "rich",
 ]
+
+# Collect pythonnet / clr_loader / webview native bits (Windows GUI).
+try:
+    from PyInstaller.utils.hooks import collect_all, collect_data_files
+
+    for pkg in ("pythonnet", "clr_loader", "webview"):
+        d, b, h = collect_all(pkg)
+        datas += d
+        binaries += b
+        hiddenimports += h
+except Exception:
+    pass
 
 a = Analysis(
     [str(ROOT / "run_gui.py")],

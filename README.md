@@ -9,6 +9,8 @@
 | 文档 | 内容 |
 |------|------|
 | [docs/客户交接说明.md](docs/客户交接说明.md) | **客户交付交接**：交付物、环境、配置、操作流程、部署注意 |
+| [docs/GUI用户使用手册.md](docs/GUI用户使用手册.md) / [PDF](docs/GUI用户使用手册.pdf) | **GUI 图文手册（浅色，main 默认）** |
+| [docs/GUI用户使用手册-深色版.md](docs/GUI用户使用手册-深色版.md) / [PDF](docs/GUI用户使用手册-深色版.pdf) | **GUI 图文手册（深色主题）** |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 目标、边界、原则、六阶段职责、Raw/Canonical/Gold、审核语义、信源策略 |
 | [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md) | 目录、SQLite、阶段接口、抓取降级、状态机、迁移、测试与实现顺序 |
 | [docs/CATEGORY_TEMPLATE_SPEC.md](docs/CATEGORY_TEMPLATE_SPEC.md) | **单 Excel 新增品类**的强制协议与编译契约 |

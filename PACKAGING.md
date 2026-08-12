@@ -66,6 +66,14 @@ python -W ignore -m PyInstaller build.spec --noconfirm
 3. **datas 打整个包** — 不能只打 `gui/static`，否则 schema SQL / 静态资源缺失。
 4. **调试黑屏** — 临时把 `build.spec` 里 `console=False` 改为 `True` 重打，看控制台报错。
 5. **改代码后** — 改 `gui/`、`stages/`、`build.spec`、`config.py` 必须重打包；改 `.env` / `data/` 不用。
+6. **`Failed to resolve Python.Runtime.Loader.Initialize`**（Win11 常见）  
+   从网盘/压缩包解压后，Windows 会给文件打上「来自其他电脑」标记，导致 `pythonnet` 的 `Python.Runtime.dll` 无法加载。  
+   **客户机立刻可做：**
+   - 右键压缩包 → 属性 → 勾选 **解除锁定(Unblock)** → 确定，再解压；或  
+   - 在已解压目录运行 `unblock-windows.bat`；或 PowerShell：  
+     `Get-ChildItem -Recurse | Unblock-File`  
+   然后重新双击 `terminal-insight-v2.exe`。  
+   另需已安装 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)。
 
 ## 验证清单
 
