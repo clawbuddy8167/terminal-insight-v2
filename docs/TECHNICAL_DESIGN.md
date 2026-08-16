@@ -458,9 +458,12 @@ Sheet 建议：
 
 ### 5.6 Vote
 
-- 输入：压缩后的 resolved/gold JSON + 输入 `content_revision`；  
-- 4 角色并行；  
-- 若 `validated/resolved` revision 变化 → 丢弃旧 votes。
+- 输入：`resolved.json` 压缩投影（去掉空缺与纯 identity 噪音）+ `input_revision`。  
+- **AAA–FFF 六套参考系并行**：每人按自己的参考系 × 取景框提名 2–3 个热点；禁止同质化。  
+- 轻量方向聚类写入 `votes.json.clusters`，合并频次时保留「谁用哪套轴」。  
+- 回填 Excel「亮点投票」：`参考系 | 取景框 | 热点 | 品牌 | 机型 | 说明`。  
+- 若 `input_revision` 变化 → 覆盖旧 `votes.json`，不与旧票合并。  
+- 不联网搜新机；缺少 `resolved.json` 或 `OPENAI_API_KEY` 则失败（不再 stub skip）。
 
 ---
 

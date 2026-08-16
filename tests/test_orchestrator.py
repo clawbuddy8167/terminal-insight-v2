@@ -15,17 +15,19 @@ def test_normalize_stages_order():
     ]
 
 
-def test_run_pipeline_stubs(tmp_path: Path, monkeypatch):
+def test_run_pipeline_vote_requires_resolved(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("DATA_ROOT", str(tmp_path / "data"))
     from terminal_insight_v2.config import Settings
     import terminal_insight_v2.orchestrator as orch
     import terminal_insight_v2.store.db as db
     import terminal_insight_v2.store.ledger as ledger
+    import terminal_insight_v2.vote.api as vote_api
 
-    s = Settings()
+    s = Settings(_env_file=None, data_root=str(tmp_path / "data"), openai_api_key="test-key")
     monkeypatch.setattr(db, "settings", s)
     monkeypatch.setattr(ledger, "settings", s)
     monkeypatch.setattr(orch, "settings", s)
+    monkeypatch.setattr(vote_api, "settings", s)
 
     result = run_pipeline(
         category="phone",
@@ -35,8 +37,5 @@ def test_run_pipeline_stubs(tmp_path: Path, monkeypatch):
         schema_fingerprint="fp",
         root=s.memory_root(),
     )
-    assert result["status"] == "ok"
-    assert len(result["stages"]) == 1
-    assert all(x["status"] == "skipped" for x in result["stages"])
-    assert (Path(result["run_dir"]) / "steps.json").exists()
+    assert result["status"] == "failed"
     assert (Path(result["run_dir"]) / "run.json").exists()

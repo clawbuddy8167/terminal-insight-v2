@@ -8,6 +8,7 @@ from .collect import CollectStage
 from .extract import ExtractStage
 from .excel_stage import ExcelStage
 from .verify import VerifyStage
+from .vote import VoteStage
 
 _STAGES: Dict[str, Stage] = {
     "collect": CollectStage(),
@@ -15,7 +16,7 @@ _STAGES: Dict[str, Stage] = {
     "backfill": BackfillStage(),
     "verify": VerifyStage(),
     "excel": ExcelStage(),
-    "vote": StubStage("vote"),
+    "vote": VoteStage(),
 }
 
 
@@ -32,6 +33,7 @@ __all__ = [
     "ExtractStage",
     "VerifyStage",
     "ExcelStage",
+    "VoteStage",
     "Stage",
     "StubStage",
     "get_stage",

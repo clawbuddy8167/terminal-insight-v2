@@ -214,9 +214,10 @@ flowchart LR
 
 | | |
 |--|--|
-| **目标** | 四角色热点提报 |
-| **输入** | 与 Excel 同源的 resolved / gold 投影 |
-| **闸门** | 输入版本哈希变化时自动失效旧 vote |
+| **目标** | AAA–FFF 六套参考系 × 取景框热点提报，并做轻量方向聚类 |
+| **输入** | 与 Excel 同源的 `resolved.json` 投影 |
+| **输出** | `votes.json`；回填 Excel「亮点投票」 |
+| **闸门** | `input_revision` 变化时覆盖旧 vote；禁止编造投影外机型 |
 
 ---
 

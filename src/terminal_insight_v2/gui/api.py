@@ -398,6 +398,9 @@ class GuiApi:
         xlsx = sorted(run_dir.glob("*.xlsx"))
         if xlsx:
             out["excel"] = str(xlsx[0])
+        votes = run_dir / "votes.json"
+        if votes.exists():
+            out["votes"] = str(votes)
         # Prefer path recorded in steps.json
         steps_path = run_dir / "steps.json"
         if steps_path.exists():

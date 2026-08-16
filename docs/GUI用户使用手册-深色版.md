@@ -114,7 +114,7 @@ Terminal Insight v2 GUI 用于在本机完成智能终端（手机 / 手表 / �
 
 点击蓝色按钮 **全部运行**。
 
-系统将按顺序执行：`collect → extract → backfill → verify → excel`（`vote` 当前为占位阶段）。
+系统将按顺序执行：`collect → extract → backfill → verify → excel → vote`。`vote` 会按 AAA–FFF 六套参考系提名热点，写入 `votes.json` 并回填 Excel「亮点投票」。
 
 ### 步骤 C — 观察进度
 
@@ -294,7 +294,7 @@ flowchart LR
 | 信源按钮灰色 | 尚未完成 collect，或 Runs 未选中有 `sources.html` 的批次 |
 | 点了 Excel / 信源没反应 | 检查系统是否关联了 xlsx / 浏览器；也可「打开目录」手动双击 |
 | 想停掉任务 | 当前不支持优雅停止；只能等跑完（勿频繁强杀） |
-| Vote 一直「待运行」 | Vote 仍为占位，不影响 Excel 交付 |
+| Vote 失败 / 无票 | 需已有 `resolved.json`（先跑 verify）且配置了 `OPENAI_API_KEY` |
 
 ---
 

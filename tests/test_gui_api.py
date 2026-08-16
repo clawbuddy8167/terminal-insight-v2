@@ -88,19 +88,21 @@ def test_gui_list_runs_filesystem_fallback(tmp_path: Path, monkeypatch):
     assert prog["artifacts"]["run_dir"]
 
 
-def test_gui_run_pipeline_vote_stub(tmp_path: Path, monkeypatch):
+def test_gui_run_pipeline_vote_without_resolved(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("DATA_ROOT", str(tmp_path / "data"))
     from terminal_insight_v2.config import Settings
     import terminal_insight_v2.gui.api as gui_api
     import terminal_insight_v2.orchestrator as orch
     import terminal_insight_v2.store.db as db
     import terminal_insight_v2.store.ledger as ledger
+    import terminal_insight_v2.vote.api as vote_api
 
-    s = Settings()
+    s = Settings(_env_file=None, data_root=str(tmp_path / "data"), openai_api_key="")
     monkeypatch.setattr(gui_api, "settings", s)
     monkeypatch.setattr(orch, "settings", s)
     monkeypatch.setattr(db, "settings", s)
     monkeypatch.setattr(ledger, "settings", s)
+    monkeypatch.setattr(vote_api, "settings", s)
 
     api = GuiApi()
     res = api.run_pipeline(["vote"], {"category": "phone", "date_start": "2026-07-01", "date_end": "2026-07-31"})
@@ -111,4 +113,4 @@ def test_gui_run_pipeline_vote_stub(tmp_path: Path, monkeypatch):
     prog = api.get_progress()
     assert not prog["running"]
     assert prog["run_id"]
-    assert prog["stage_status"].get("vote") == "done"
+    assert prog["error"]
