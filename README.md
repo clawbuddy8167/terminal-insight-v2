@@ -2,7 +2,7 @@
 
 证据优先的终端（手机 / 手表 / 眼镜）调研流水线：**采集 → 提取 → 补链 → 校验 → Excel → Vote**。
 
-本目录当前交付为**架构与技术设计基线**（可直接指导开发），实现代码按文档里程碑推进。
+本目录交付可运行的六阶段流水线与本地 GUI：窗口发现或定向机型采集，产出带信源的 Excel 与六参考系「亮点投票」。
 
 ## 文档索引
 
@@ -50,7 +50,7 @@ python -m terminal_insight_v2.cli run \
   --category glasses --start 2026-01-01 --end 2026-07-31 \
   --stages collect,extract
 
-# 本地桌面 GUI（配置 / 跑流水线 / 浏览 runs 与覆盖率）
+# 本地桌面 GUI（配置 / 窗口发现或定向机型 / 浏览 runs 与覆盖率）
 python run_gui.py
 # 或: python -m terminal_insight_v2.gui
 # 或: python -m terminal_insight_v2.cli gui
@@ -61,9 +61,9 @@ python run_gui.py
 pytest -q
 ```
 
-Collect 阶段会：豆包发现机型 → 规划 URL → HTTP/Jina 抓取 → 写入 `data/memory/blobs/` 与 `llm-wiki/raw/`，并在 run 目录生成 `sources.html` / `collection_manifest.json`。
+Collect 阶段会：按日期窗发现机型，或使用 GUI 确认的定向清单（`targets.json`）→ 规划 URL → HTTP/Jina 抓取 → 写入 `data/memory/blobs/` 与 `llm-wiki/raw/`，并在 run 目录生成 `sources.html` / `collection_manifest.json`。
 
-Extract 阶段会：读取本 run 快照正文 → **每快照一次 LLM** 抽取字段 → 写入 `field_assertions` 表与 `assertions.jsonl`（每条 assertion 强制带 snippet）。Verify / Backfill 等仍为 stub。
+Extract 之后会补链、校验、出 Excel，再按六套参考系写「亮点投票」。定向采集目前只在 GUI 提供；CLI `run` 仍走窗口发现。
 
 ## 下一步（实现）
 
@@ -81,4 +81,6 @@ Extract 阶段会：读取本 run 快照正文 → **每快照一次 LLM** 抽�
 | M2b Collect+ | **MVP 已实现**（discover + fetch + blobs + llm-wiki/raw + sources.html） |
 | M2c Extract | **MVP 已实现**（一源一 LLM 调用 → field_assertions + assertions.jsonl） |
 | M2d Verify + Excel | **MVP 已实现**（identity/evidence → Resolution → xlsx） |
-| GUI（PyWebView） | **MVP 已实现**（配置 / 跑阶段 / runs / 覆盖率 / 打开产物） |
+| Vote | **已实现**（六参考系 → `votes.json` + Excel「亮点投票」） |
+| 定向采集 | **已实现**（GUI 粘贴品牌+型号，跳过窗口发现） |
+| GUI（PyWebView） | **MVP 已实现**（配置 / 定向 / 跑阶段 / 中途进度 / runs / 覆盖率） |
