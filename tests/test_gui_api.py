@@ -98,6 +98,46 @@ def test_gui_list_runs_filesystem_fallback(tmp_path: Path, monkeypatch):
     assert prog["artifacts"]["run_dir"]
 
 
+def test_gui_progress_marks_partial_done_and_next_running(tmp_path: Path, monkeypatch):
+    data = tmp_path / "data"
+    run_id = "phone_20260101-20260131_mid"
+    run_dir = data / "runs" / run_id
+    run_dir.mkdir(parents=True)
+    (run_dir / "run.json").write_text(
+        json.dumps({"run_id": run_id, "rel_path": f"runs/{run_id}", "status": "running"}),
+        encoding="utf-8",
+    )
+    (run_dir / "steps.json").write_text(
+        json.dumps(
+            [
+                {"stage": "collect", "status": "partial", "metrics": {"devices": 3}},
+                {"stage": "extract", "status": "ok", "metrics": {"assertions": 10}},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("DATA_ROOT", str(data))
+    from terminal_insight_v2.config import Settings
+    import terminal_insight_v2.gui.api as gui_api
+    import terminal_insight_v2.store.db as db
+    import terminal_insight_v2.store.ledger as ledger
+
+    s = Settings(_env_file=None, data_root=str(data))
+    monkeypatch.setattr(gui_api, "settings", s)
+    monkeypatch.setattr(db, "settings", s)
+    monkeypatch.setattr(ledger, "settings", s)
+
+    api = GuiApi()
+    api._active_run_id = run_id
+    api._running = True
+    api._requested_stages = ["collect", "extract", "backfill", "verify", "excel", "vote"]
+    prog = api.get_progress()
+    assert prog["stage_status"]["collect"] == "done"
+    assert prog["stage_status"]["extract"] == "done"
+    assert prog["stage_status"]["backfill"] == "running"
+    assert prog["current_stage"] == "backfill"
+
+
 def test_gui_run_pipeline_vote_without_resolved(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("DATA_ROOT", str(tmp_path / "data"))
     from terminal_insight_v2.config import Settings

@@ -246,6 +246,9 @@ class GuiApi:
                 return {"ok": False, "error": "定向机型为空：请先解析并确认品牌+型号清单"}
             extras["targets"] = [t.model_dump() for t in rows]
         self._requested_stages = list(requested)
+        if resume_id:
+            with self._lock:
+                self._active_run_id = resume_id
 
         fingerprint = "pending"
         try:
@@ -257,6 +260,10 @@ class GuiApi:
             # Allow stub stages without template; real stages fail later.
             fingerprint = "pending"
 
+        def _on_run_ready(run_id: str, _run_dir: str) -> None:
+            with self._lock:
+                self._active_run_id = run_id
+
         def _worker() -> None:
             try:
                 result = run_pipeline(
@@ -267,6 +274,7 @@ class GuiApi:
                     schema_fingerprint=fingerprint,
                     resume_run_id=resume_id,
                     extras=extras,
+                    on_run_ready=_on_run_ready,
                 )
                 rid = str(result.get("run_id") or "")
                 with self._lock:
@@ -319,7 +327,7 @@ class GuiApi:
             if name not in stage_status:
                 continue
             status = st.get("status") or "ok"
-            if status in ("ok", "skipped"):
+            if status in ("ok", "skipped", "partial"):
                 stage_status[name] = "done"
             elif status == "failed":
                 stage_status[name] = "failed"

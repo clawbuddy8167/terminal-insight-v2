@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from rich.console import Console
 
@@ -42,8 +42,13 @@ def run_pipeline(
     resume_run_id: Optional[str] = None,
     root: Optional[Path] = None,
     extras: Optional[Dict[str, Any]] = None,
+    on_run_ready: Optional[Callable[[str, str], None]] = None,
 ) -> Dict[str, object]:
-    """Execute requested stages, recording ledger entries."""
+    """Execute requested stages, recording ledger entries.
+
+    ``on_run_ready(run_id, run_dir)`` fires once the run directory exists,
+    before any stage starts, so UIs can poll ``steps.json`` mid-pipeline.
+    """
     ensure_memory_dirs(root=root)
     requested = normalize_stages(stages)
     ds = date_start or settings.date_start
@@ -90,6 +95,8 @@ def run_pipeline(
         saved = load_targets_file(run_dir)
         if saved:
             ctx_extras["targets"] = [t.model_dump() for t in saved]
+    if on_run_ready is not None:
+        on_run_ready(run_id, str(run_dir))
     steps_path = run_dir / "steps.json"
     steps: List[dict] = []
     if steps_path.exists():

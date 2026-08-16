@@ -29,6 +29,7 @@ def test_run_pipeline_vote_requires_resolved(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(orch, "settings", s)
     monkeypatch.setattr(vote_api, "settings", s)
 
+    seen: list[tuple[str, str]] = []
     result = run_pipeline(
         category="phone",
         stages=["vote"],
@@ -36,6 +37,9 @@ def test_run_pipeline_vote_requires_resolved(tmp_path: Path, monkeypatch):
         date_end="2026-07-31",
         schema_fingerprint="fp",
         root=s.memory_root(),
+        on_run_ready=lambda rid, rdir: seen.append((rid, rdir)),
     )
     assert result["status"] == "failed"
     assert (Path(result["run_dir"]) / "run.json").exists()
+    assert seen and seen[0][0] == result["run_id"]
+    assert seen[0][1] == result["run_dir"]
