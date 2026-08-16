@@ -114,7 +114,7 @@ Terminal Insight v2 GUI 用于在本机完成智能终端（手机 / 手表 / �
 
 点击蓝色按钮 **全部运行**。
 
-系统将按顺序执行：`collect → extract → backfill → verify → excel → vote`。`vote` 会按 AAA–FFF 六套参考系提名热点，写入 `votes.json` 并回填 Excel「亮点投票」。
+系统将按顺序执行：`collect → extract → backfill → verify → excel → vote`。顶栏可切换「窗口发现 / 定向机型」；定向模式需粘贴品牌+型号、解析确认后才会跳过窗口发现。`vote` 会按六套参考系提名热点。
 
 ### 步骤 C — 观察进度
 

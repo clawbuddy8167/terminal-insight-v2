@@ -18,6 +18,11 @@ from terminal_insight_v2.providers.search import resolve_search_provider
 from terminal_insight_v2.render.sources_html import write_collect_sources_html
 from terminal_insight_v2.sourcing.discover import discover_devices
 from terminal_insight_v2.sourcing.plan_urls import PlannedUrl, plan_urls_for_device
+from terminal_insight_v2.targets import (
+    coerce_targets,
+    devices_from_targets,
+    load_targets_file,
+)
 from terminal_insight_v2.store.db import transaction, utc_now
 from terminal_insight_v2.store.repositories import persist_fetch, upsert_device
 from terminal_insight_v2.store.wiki import write_raw_snapshot
@@ -80,7 +85,8 @@ class CollectStage(Stage):
     def prereq(self, ctx: StageContext) -> None:
         if not (settings.doubao_api_key or "").strip() and not (settings.tavily_api_key or "").strip():
             raise RuntimeError("DOUBAO_API_KEY or TAVILY_API_KEY is required for collect")
-        if not (settings.openai_api_key or "").strip():
+        targets = _targets_from_ctx(ctx)
+        if not targets and not (settings.openai_api_key or "").strip():
             raise RuntimeError("OPENAI_API_KEY is required for collect (discovery)")
 
     def run(self, ctx: StageContext) -> StageResult:
@@ -88,21 +94,26 @@ class CollectStage(Stage):
         schema_id = ctx.schema_fingerprint or schema.fingerprint
         search = resolve_search_provider(settings)
         llm = LLMProvider(settings)
-
-        devices, pool_hits = discover_devices(
-            schema,
-            settings,
-            date_start=ctx.date_start,
-            date_end=ctx.date_end,
-            search=search,
-            llm=llm,
-        )
+        targeted = _targets_from_ctx(ctx)
+        pool_hits: List[Any] = []
+        if targeted:
+            devices = devices_from_targets(targeted, category=ctx.category)
+            console.log(f"[collect] targeted {len(devices)} devices (skip discovery)")
+        else:
+            devices, pool_hits = discover_devices(
+                schema,
+                settings,
+                date_start=ctx.date_start,
+                date_end=ctx.date_end,
+                search=search,
+                llm=llm,
+            )
         if not devices:
             return StageResult(
                 stage=self.name,
                 status="partial",
                 output_revision=f"collect:{ctx.run_id}:0devices",
-                errors=["discovery returned 0 devices"],
+                errors=["no target devices" if targeted else "discovery returned 0 devices"],
             )
 
         manifest_devices: List[Dict[str, Any]] = []
@@ -199,7 +210,8 @@ class CollectStage(Stage):
                 "sources_ok": fetched_ok,
                 "sources_failed": fetched_fail,
                 "search_calls": search.call_count,
-                "llm_calls": llm.call_count,
+                "llm_calls": 0 if targeted else llm.call_count,
+                "collect_mode": "targets" if targeted else "window",
             },
         }
 
@@ -233,3 +245,13 @@ class CollectStage(Stage):
             },
             errors=errors[:20],
         )
+
+
+def _targets_from_ctx(ctx: StageContext):
+    extras = ctx.extras or {}
+    found = coerce_targets(extras.get("targets"))
+    if found:
+        return found
+    if ctx.run_dir:
+        return load_targets_file(Path(ctx.run_dir))
+    return []

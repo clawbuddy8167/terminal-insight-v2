@@ -166,7 +166,7 @@ flowchart LR
 | | |
 |--|--|
 | **目标** | 为每款设备尽可能收集权威来源正文，不做字段结论 |
-| **输入** | 机型清单 + 品类 Schema + 信源策略 |
+| **输入** | 窗口发现的机型清单，或定向 `targets.json`（跳过 Discovery）+ 品类 Schema + 信源策略 |
 | **输出** | Source / Snapshot / DeviceSource；raw + content.md/json；`sources.html`；`collection_manifest.json` |
 | **必采** | 若官网参数页、官方商城存在，则必须收录；不存在则记录 `not_available`，禁止硬凑 |
 | **软目标** | ≈10 个来源；不足时记录原因，不因凑数引入低质页 |

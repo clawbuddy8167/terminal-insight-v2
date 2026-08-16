@@ -202,7 +202,7 @@ class GuiApi:
         """Start pipeline in a background thread. Returns immediately.
 
         JS bridge passes at most two positionals; put overrides in ``opts`` dict:
-        ``{category, date_start, date_end, resume, from_stage}``.
+        ``{category, date_start, date_end, resume, from_stage, collect_mode, targets}``.
         """
         if isinstance(stages, dict) and opts is None:
             opts = stages
@@ -234,6 +234,17 @@ class GuiApi:
         ds = str(options.get("date_start") or settings.date_start or "").strip()
         de = str(options.get("date_end") or settings.date_end or "").strip()
         resume_id = str(options.get("resume") or "").strip() or None
+        collect_mode = str(options.get("collect_mode") or "window").strip().lower()
+        extras: Dict[str, Any] = {}
+        if collect_mode == "targets" and "collect" in requested and not resume_id:
+            from terminal_insight_v2.targets import coerce_targets
+
+            rows = coerce_targets(options.get("targets"))
+            if not rows:
+                with self._lock:
+                    self._running = False
+                return {"ok": False, "error": "定向机型为空：请先解析并确认品牌+型号清单"}
+            extras["targets"] = [t.model_dump() for t in rows]
         self._requested_stages = list(requested)
 
         fingerprint = "pending"
@@ -255,6 +266,7 @@ class GuiApi:
                     date_end=de,
                     schema_fingerprint=fingerprint,
                     resume_run_id=resume_id,
+                    extras=extras,
                 )
                 rid = str(result.get("run_id") or "")
                 with self._lock:
@@ -273,8 +285,20 @@ class GuiApi:
         self._thread.start()
         return {"ok": True, "stages": requested, "resume": resume_id or ""}
 
-    def run_from_stage(self, stage: str) -> Dict[str, Any]:
-        return self.run_pipeline(None, {"from_stage": stage})
+    def run_from_stage(self, stage: str, opts: Any = None) -> Dict[str, Any]:
+        options: Dict[str, Any] = dict(opts) if isinstance(opts, dict) else {}
+        options["from_stage"] = stage
+        return self.run_pipeline(None, options)
+
+    def parse_targets(self, text: str = "") -> Dict[str, Any]:
+        from terminal_insight_v2.targets import parse_targets
+
+        result = parse_targets(text or "")
+        return {
+            "ok": True,
+            "targets": [t.model_dump() for t in result.targets],
+            "errors": [e.model_dump() for e in result.errors],
+        }
 
     def get_progress(self) -> Dict[str, Any]:
         run_id = self._active_run_id

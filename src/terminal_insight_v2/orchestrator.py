@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 from rich.console import Console
 
@@ -41,6 +41,7 @@ def run_pipeline(
     schema_fingerprint: str = "pending",
     resume_run_id: Optional[str] = None,
     root: Optional[Path] = None,
+    extras: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, object]:
     """Execute requested stages, recording ledger entries."""
     ensure_memory_dirs(root=root)
@@ -68,6 +69,27 @@ def run_pipeline(
     run_dir = settings.data_path() / (run_meta.get("rel_path") or f"runs/{run_id}")
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
+    ctx_extras = dict(extras or {})
+    targets = ctx_extras.get("targets")
+    if targets:
+        from terminal_insight_v2.targets import coerce_targets, write_targets_file
+
+        rows = coerce_targets(targets)
+        ctx_extras["targets"] = [t.model_dump() for t in rows]
+        write_targets_file(
+            run_dir,
+            rows,
+            category=cat,
+            date_start=ds,
+            date_end=de,
+            mode="targets",
+        )
+    elif resume_run_id:
+        from terminal_insight_v2.targets import load_targets_file
+
+        saved = load_targets_file(run_dir)
+        if saved:
+            ctx_extras["targets"] = [t.model_dump() for t in saved]
     steps_path = run_dir / "steps.json"
     steps: List[dict] = []
     if steps_path.exists():
@@ -91,6 +113,7 @@ def run_pipeline(
             date_end=de,
             input_revision=str(run_meta.get("input_revision") or ""),
             run_dir=str(run_dir),
+            extras=ctx_extras,
         )
         stage = get_stage(stage_name)
         ledger = start_stage(

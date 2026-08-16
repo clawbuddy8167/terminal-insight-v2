@@ -38,6 +38,14 @@
     width: auto; min-width: 132px; font-size: 12px;
     padding: 3px 6px; border: 1px solid #ddd; border-radius: 5px;
   }
+  textarea.targets-box {
+    width: 100%; min-height: 140px; resize: vertical;
+    border: 1px solid #ddd; border-radius: 5px;
+    padding: 8px 9px; font-size: 13px; font-family: inherit; color: #333;
+  }
+  textarea.targets-box:focus { outline: none; border-color: #888; }
+  .preview-row { display: grid; grid-template-columns: 1fr 1.4fr 28px; gap: 6px; margin-bottom: 6px; }
+  .err-line { font-size: 12px; color: #e53e3e; }
   .main { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
   .card {
     background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 14px 16px;
@@ -160,6 +168,14 @@
       <input id="hdr-date-end" type="date" v-model="cfg.date_end" @change="persistQuick"
              :disabled="progress.running">
     </div>
+    <select class="cat-select" v-model="collectMode" :disabled="progress.running" title="采集范围">
+      <option value="window">窗口发现</option>
+      <option value="targets">定向机型</option>
+    </select>
+    <button class="icon-btn" v-if="collectMode==='targets'" @click="showTargets=true"
+            :disabled="progress.running">
+      定向 · {{ confirmedTargets.length }} 机
+    </button>
     <span class="sub" v-if="progress.run_id" :title="progress.run_dir">run · {{ progress.run_id }}</span>
     <span class="sub" v-if="coverage.items.length">{{ coverage.items.length }} 机</span>
     <span v-if="progress.running" class="sub running">● {{ progress.current_stage || '…' }}</span>
@@ -183,7 +199,10 @@
           <div class="stat">{{ stageStat(s.key) }}</div>
         </div>
       </div>
-      <p class="stage-hint">点击某一阶段 = 从该阶段跑到结束。MVP 不支持中途停止。Resume 可在「Runs」选中历史 run 后使用。</p>
+      <p class="stage-hint">
+        点击某一阶段 = 从该阶段跑到结束。MVP 不支持中途停止。
+        <span v-if="collectMode==='targets'">定向采集将跳过窗口发现，只抓已确认机型。</span>
+      </p>
       <div class="actions">
         <button class="btn" @click="runAll" :disabled="progress.running">全部运行</button>
         <button class="btn btn-outline" @click="runResume" :disabled="progress.running || !progress.run_id">
@@ -355,6 +374,49 @@
       </div>
     </div>
   </div>
+
+  <div class="modal-backdrop" v-if="showTargets" @click.self="showTargets=false">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>定向机型</h2>
+        <span class="spacer"></span>
+        <button class="icon-btn" @click="showTargets=false">关闭</button>
+      </div>
+      <div class="modal-body">
+        <div>
+          <div class="section-label">批量粘贴（一行一款）</div>
+          <textarea class="targets-box" v-model="targetsText"
+                    placeholder="华为 | Mate X7&#10;OPPO, Find X9 Ultra&#10;小米 17 Pro Max"></textarea>
+          <p class="hint">支持竖线、逗号、Tab 或空格分隔品牌与型号。品类与日期仍用顶栏。</p>
+        </div>
+        <div>
+          <button class="btn btn-outline" @click="doParseTargets">解析预览</button>
+        </div>
+        <div v-if="parseErrors.length">
+          <div class="section-label">无法解析</div>
+          <div class="err-line" v-for="(e, i) in parseErrors" :key="i">
+            第 {{ e.line_no }} 行：{{ e.reason }} · {{ e.raw }}
+          </div>
+        </div>
+        <div>
+          <div class="section-label">预览（可改） · {{ previewTargets.length }} 款</div>
+          <div v-if="previewTargets.length">
+            <div class="preview-row" v-for="(t, i) in previewTargets" :key="i">
+              <input v-model="t.brand" placeholder="品牌">
+              <input v-model="t.model" placeholder="型号">
+              <button class="icon-btn" @click="previewTargets.splice(i, 1)" title="删除">×</button>
+            </div>
+          </div>
+          <div class="empty" v-else>解析后在此核对品牌与型号</div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <span class="toast" :class="{err: targetMsg.err}" v-if="targetMsg.text">{{ targetMsg.text }}</span>
+        <span class="spacer"></span>
+        <button class="btn" @click="confirmTargets">确认</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -398,6 +460,13 @@ createApp({
     const runs = ref([]);
     const tab = ref('coverage');
     const showConfig = ref(false);
+    const showTargets = ref(false);
+    const collectMode = ref('window');
+    const targetsText = ref('');
+    const previewTargets = ref([]);
+    const confirmedTargets = ref([]);
+    const parseErrors = ref([]);
+    const targetMsg = ref({ text: '', err: false });
     const saveMsg = ref({ text: '', err: false });
     let pollTimer = null;
 
@@ -465,15 +534,50 @@ createApp({
       }
     }
 
-    async function runAll() {
-      const a = api();
-      if (!a || progress.value.running) return;
-      await persistQuick();
-      const res = await a.run_pipeline(['all'], {
+    function runOpts(extra) {
+      return {
         category: cfg.value.category,
         date_start: cfg.value.date_start,
         date_end: cfg.value.date_end,
-      });
+        collect_mode: collectMode.value,
+        targets: confirmedTargets.value,
+        ...extra,
+      };
+    }
+
+    async function doParseTargets() {
+      const a = api();
+      if (!a) return;
+      const res = await a.parse_targets(targetsText.value || '');
+      previewTargets.value = (res.targets || []).map(t => ({ brand: t.brand, model: t.model }));
+      parseErrors.value = res.errors || [];
+      targetMsg.value = previewTargets.value.length
+        ? { text: `解析出 ${previewTargets.value.length} 款`, err: false }
+        : { text: '没有有效机型', err: true };
+    }
+
+    function confirmTargets() {
+      const rows = previewTargets.value
+        .map(t => ({ brand: (t.brand || '').trim(), model: (t.model || '').trim() }))
+        .filter(t => t.brand && t.model);
+      if (!rows.length) {
+        targetMsg.value = { text: '请先解析出至少一款完整机型', err: true };
+        return;
+      }
+      confirmedTargets.value = rows;
+      showTargets.value = false;
+    }
+
+    async function runAll() {
+      const a = api();
+      if (!a || progress.value.running) return;
+      if (collectMode.value === 'targets' && !confirmedTargets.value.length) {
+        progress.value.error = '定向机型为空：请先配置并确认清单';
+        showTargets.value = true;
+        return;
+      }
+      await persistQuick();
+      const res = await a.run_pipeline(['all'], runOpts());
       if (!res.ok) {
         progress.value.error = res.error;
         return;
@@ -484,8 +588,13 @@ createApp({
     async function runFrom(stage) {
       const a = api();
       if (!a || progress.value.running) return;
+      if (collectMode.value === 'targets' && stage === 'collect' && !confirmedTargets.value.length) {
+        progress.value.error = '定向机型为空：请先配置并确认清单';
+        showTargets.value = true;
+        return;
+      }
       await persistQuick();
-      const res = await a.run_from_stage(stage);
+      const res = await a.run_pipeline(['all'], runOpts({ from_stage: stage }));
       if (!res.ok) {
         progress.value.error = res.error;
         return;
@@ -496,12 +605,7 @@ createApp({
     async function runResume() {
       const a = api();
       if (!a || progress.value.running || !progress.value.run_id) return;
-      const res = await a.run_pipeline(['all'], {
-        category: cfg.value.category,
-        date_start: cfg.value.date_start,
-        date_end: cfg.value.date_end,
-        resume: progress.value.run_id,
-      });
+      const res = await a.run_pipeline(['all'], runOpts({ resume: progress.value.run_id }));
       if (!res.ok) {
         progress.value.error = res.error;
         return;
@@ -613,7 +717,9 @@ createApp({
 
     return {
       cfg, categories, stageDefs, progress, coverage, runs, tab, showConfig, saveMsg,
+      showTargets, collectMode, targetsText, previewTargets, confirmedTargets, parseErrors, targetMsg,
       openConfig, doSave, persistQuick, onCategoryChange,
+      doParseTargets, confirmTargets,
       runAll, runFrom, runResume, openArtifact,
       loadCoverage, loadRuns, selectRun, stageStat, stepSummary,
     };

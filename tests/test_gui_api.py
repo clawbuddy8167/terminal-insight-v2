@@ -9,6 +9,16 @@ from terminal_insight_v2.gui.api import GuiApi, stages_from
 from terminal_insight_v2.gui.env_merge import merge_env_file
 
 
+def test_gui_parse_and_reject_empty_targets():
+    from terminal_insight_v2.gui.api import GuiApi
+
+    api = GuiApi()
+    parsed = api.parse_targets("华为 | Mate X7")
+    assert parsed["targets"][0]["model"] == "Mate X7"
+    denied = api.run_pipeline(["collect"], {"collect_mode": "targets", "targets": []})
+    assert not denied["ok"]
+
+
 def test_stages_from_order():
     assert stages_from("verify") == ["verify", "excel", "vote"]
 
