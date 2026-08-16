@@ -44,7 +44,7 @@ class VerifyStage(Stage):
         identity_names = set(schema.identity_fields)
 
         assertions = load_assertions_for_run(ctx.run_id)
-        devices = load_devices_for_run(ctx.run_id)
+        devices = load_devices_for_run(ctx.run_id, run_dir=ctx.run_dir)
         console.log(
             f"[verify] devices={len(devices)} assertions={len(assertions)}"
         )

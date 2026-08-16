@@ -252,7 +252,7 @@ class ExtractStage(Stage):
         if not (settings.openai_api_key or "").strip():
             raise RuntimeError("OPENAI_API_KEY is required for extract")
         manifest = Path(ctx.run_dir) / "collection_manifest.json"
-        snaps = load_snapshots_for_run(ctx.run_id)
+        snaps = load_snapshots_for_run(ctx.run_id, ctx.run_dir)
         if not manifest.exists() and not snaps:
             raise FileNotFoundError(
                 f"缺少 collection_manifest.json 或 run={ctx.run_id} 的可抽取快照；请先跑 collect"
@@ -260,7 +260,7 @@ class ExtractStage(Stage):
 
     def run(self, ctx: StageContext) -> StageResult:
         schema = load_category_schema(ctx.category, persist=False)
-        rows = load_snapshots_for_run(ctx.run_id)
+        rows = load_snapshots_for_run(ctx.run_id, ctx.run_dir)
         out = extract_snapshots(
             run_id=ctx.run_id,
             run_dir=Path(ctx.run_dir),

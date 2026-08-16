@@ -23,7 +23,7 @@ from terminal_insight_v2.stages.extract import extract_snapshots
 from terminal_insight_v2.store.db import connection, transaction, utc_now
 from terminal_insight_v2.store.ledger import set_backfill_round
 from terminal_insight_v2.store.repositories import persist_fetch
-from terminal_insight_v2.store.snapshots import load_snapshots_by_ids
+from terminal_insight_v2.store.snapshots import load_snapshots_by_ids, urls_from_manifest
 from terminal_insight_v2.store.wiki import write_raw_snapshot
 from terminal_insight_v2.verify.resolution import load_assertions_for_run, load_devices_for_run
 
@@ -99,9 +99,10 @@ def load_missing_jobs(run_dir: Path, run_id: str) -> List[Dict[str, Any]]:
 def compute_missing_from_db(
     run_id: str,
     schema: CategorySchema,
+    run_dir: Optional[Path] = None,
 ) -> List[Dict[str, Any]]:
     """Recompute missing fields from DB assertions (proxy before re-verify)."""
-    devices = load_devices_for_run(run_id)
+    devices = load_devices_for_run(run_id, run_dir=run_dir)
     assertions = load_assertions_for_run(run_id)
     have: Dict[str, Set[str]] = {}
     for a in assertions:
@@ -123,7 +124,11 @@ def compute_missing_from_db(
     return jobs
 
 
-def known_urls_for_device(device_id: str, batch_id: str) -> Set[str]:
+def known_urls_for_device(
+    device_id: str,
+    batch_id: str,
+    run_dir: Optional[Path] = None,
+) -> Set[str]:
     sql = """
       SELECT s.url FROM sources s
       JOIN device_sources ds ON ds.source_id = s.source_id
@@ -131,7 +136,9 @@ def known_urls_for_device(device_id: str, batch_id: str) -> Set[str]:
     """
     with connection(readonly=True) as conn:
         rows = conn.execute(sql, (device_id, batch_id)).fetchall()
-    return {_url_key(r["url"]) for r in rows if r["url"]}
+    known = {_url_key(r["url"]) for r in rows if r["url"]}
+    known.update(_url_key(u) for u in urls_from_manifest(run_dir, device_id))
+    return known
 
 
 def build_backfill_queries(
@@ -278,7 +285,7 @@ class BackfillStage(Stage):
             raise RuntimeError("DOUBAO_API_KEY or TAVILY_API_KEY is required for backfill")
         if not (settings.openai_api_key or "").strip():
             raise RuntimeError("OPENAI_API_KEY is required for backfill (extract)")
-        devices = load_devices_for_run(ctx.run_id)
+        devices = load_devices_for_run(ctx.run_id, run_dir=ctx.run_dir)
         if not devices:
             raise FileNotFoundError(f"run={ctx.run_id} 无设备；请先跑 collect")
 
@@ -292,7 +299,7 @@ class BackfillStage(Stage):
 
         jobs = load_missing_jobs(run_dir, ctx.run_id)
         if not jobs:
-            jobs = compute_missing_from_db(ctx.run_id, schema)
+            jobs = compute_missing_from_db(ctx.run_id, schema, run_dir=run_dir)
 
         prev_missing = sum(len(j["missing_fields"]) for j in jobs)
         console.log(f"[backfill] start missing_fields={prev_missing} devices={len(jobs)}")
@@ -325,7 +332,7 @@ class BackfillStage(Stage):
             # 1) Search → plan new URLs
             device_plans: List[Tuple[Dict[str, Any], List[PlannedUrl]]] = []
             for job in jobs:
-                known = known_urls_for_device(job["device_id"], ctx.run_id)
+                known = known_urls_for_device(job["device_id"], ctx.run_id, run_dir=run_dir)
                 plans = _search_urls_for_job(
                     job,
                     schema=schema,
@@ -399,7 +406,7 @@ class BackfillStage(Stage):
             errors.extend((out.get("errors") or [])[:10])
 
             # 4) coverage delta (assertion presence proxy)
-            jobs = compute_missing_from_db(ctx.run_id, schema)
+            jobs = compute_missing_from_db(ctx.run_id, schema, run_dir=run_dir)
             new_missing = sum(len(j["missing_fields"]) for j in jobs)
             delta = prev_missing - new_missing
             console.log(

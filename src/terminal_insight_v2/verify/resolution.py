@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from terminal_insight_v2.store.db import connection, transaction, utc_now
+from terminal_insight_v2.store.snapshots import devices_from_manifest
 
 
 def load_assertions_for_run(run_id: str) -> List[Dict[str, Any]]:
@@ -32,7 +34,18 @@ def load_assertions_for_run(run_id: str) -> List[Dict[str, Any]]:
         return [dict(r) for r in conn.execute(sql, (run_id,)).fetchall()]
 
 
-def load_devices_for_run(run_id: str) -> List[Dict[str, Any]]:
+def load_devices_for_run(
+    run_id: str,
+    run_dir: Optional[Union[str, Path]] = None,
+) -> List[Dict[str, Any]]:
+    """Devices belonging to this run.
+
+    Prefer ``collection_manifest.json`` so a re-collect of the same URLs is
+    not dropped when ``device_sources.batch_id`` still points at an older run.
+    """
+    listed = devices_from_manifest(run_dir)
+    if listed is not None:
+        return listed
     sql = """
       SELECT DISTINCT d.device_id, d.brand, d.model, d.release_date, d.status
       FROM devices d
