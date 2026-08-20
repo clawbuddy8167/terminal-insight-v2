@@ -2,7 +2,7 @@
 
 证据优先的终端（手机 / 手表 / 眼镜）调研流水线：**采集 → 提取 → 补链 → 校验 → Excel → Vote**。
 
-本目录交付可运行的六阶段流水线与本地 GUI：窗口发现或定向机型采集，产出带信源的 Excel 与六参考系「亮点投票」。
+本目录交付可运行的六阶段流水线与本地 GUI：窗口发现或定向机型采集，产出带信源的 Excel、六参考系「亮点投票」与四类受众「受众视角」。
 
 ## 文档索引
 
@@ -63,7 +63,7 @@ pytest -q
 
 Collect 阶段会：按日期窗发现机型，或使用 GUI 确认的定向清单（`targets.json`）→ 规划 URL → HTTP/Jina 抓取 → 写入 `data/memory/blobs/` 与 `llm-wiki/raw/`，并在 run 目录生成 `sources.html` / `collection_manifest.json`。
 
-Extract 之后会补链、校验、出 Excel，再按六套参考系写「亮点投票」。定向采集目前只在 GUI 提供；CLI `run` 仍走窗口发现。
+Extract 之后会补链、校验、出 Excel，再按六套参考系写「亮点投票」，并由四类受众写「受众视角」。定向采集目前只在 GUI 提供；CLI `run` 仍走窗口发现。
 
 ## 下一步（实现）
 
@@ -81,6 +81,6 @@ Extract 之后会补链、校验、出 Excel，再按六套参考系写「亮点
 | M2b Collect+ | **MVP 已实现**（discover + fetch + blobs + llm-wiki/raw + sources.html） |
 | M2c Extract | **MVP 已实现**（一源一 LLM 调用 → field_assertions + assertions.jsonl） |
 | M2d Verify + Excel | **MVP 已实现**（identity/evidence → Resolution → xlsx） |
-| Vote | **已实现**（六参考系 → `votes.json` + Excel「亮点投票」） |
+| Vote | **已实现**（六参考系 + 四受众审阅 → `votes.json` + Excel「亮点投票」「受众视角」） |
 | 定向采集 | **已实现**（GUI 粘贴品牌+型号，跳过窗口发现） |
 | GUI（PyWebView） | **MVP 已实现**（配置 / 定向 / 跑阶段 / 中途进度 / runs / 覆盖率） |

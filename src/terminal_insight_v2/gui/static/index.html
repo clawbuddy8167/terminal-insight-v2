@@ -21,7 +21,16 @@
   header h1 { font-size: 15px; font-weight: 600; color: #111; }
   header .sub { font-size: 12px; color: #999; }
   header .sub.running { color: #2563eb; }
-  header .sub.error { color: #e53e3e; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  header .sub.error { color: #e53e3e; }
+  .run-banner {
+    margin: 12px 20px 0; padding: 10px 14px; border-radius: 8px;
+    border: 1px solid; font-size: 13px; line-height: 1.45;
+  }
+  .run-banner.ok { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+  .run-banner.warn { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+  .run-banner.error { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+  .run-banner .kicker { font-weight: 600; }
+  .run-banner .detail { margin-top: 2px; opacity: .92; }
   .spacer { flex: 1; }
   .icon-btn, .cat-select {
     background: none; border: 1px solid #ddd; color: #666; cursor: pointer;
@@ -71,6 +80,8 @@
   .stage.running .dot { background: #2563eb; animation: pulse 1s infinite; }
   .stage.done { border-color: #bbf7d0; background: #f0fdf4; }
   .stage.done .dot { background: #16a34a; }
+  .stage.partial { border-color: #fcd34d; background: #fffbeb; }
+  .stage.partial .dot { background: #d97706; }
   .stage.failed { border-color: #fecaca; background: #fef2f2; }
   .stage.failed .dot { background: #e53e3e; }
   .stage.disabled { opacity: .45; cursor: not-allowed; }
@@ -179,12 +190,17 @@
     <span class="sub" v-if="progress.run_id" :title="progress.run_dir">run · {{ progress.run_id }}</span>
     <span class="sub" v-if="coverage.items.length">{{ coverage.items.length }} 机</span>
     <span v-if="progress.running" class="sub running">● {{ progress.current_stage || '…' }}</span>
-    <span v-if="progress.error" class="sub error" :title="progress.error">⚠ {{ progress.error }}</span>
     <span class="spacer"></span>
     <button class="icon-btn" @click="openConfig">⚙ 配置</button>
     <button class="icon-btn" @click="openArtifact('excel')" :disabled="!progress.artifacts.excel">📋 Excel</button>
     <button class="icon-btn" @click="openArtifact('sources')" :disabled="!progress.artifacts.sources">🔗 信源</button>
   </header>
+
+  <div v-if="!progress.running && (progress.notice || progress.error)"
+       class="run-banner" :class="(progress.notice && progress.notice.level) || 'error'">
+    <div class="kicker">{{ (progress.notice && progress.notice.title) || '出错了' }}</div>
+    <div class="detail" v-if="bannerDetail">{{ bannerDetail }}</div>
+  </div>
 
   <div class="main">
     <div class="card">
@@ -212,8 +228,8 @@
       </div>
       <div class="log" v-if="progress.steps.length">
         <div class="line" v-for="(st, i) in progress.steps" :key="i">
-          <span class="tag">[{{ st.stage }}]</span>
-          {{ st.status }} · {{ stepSummary(st) }}
+          <span class="tag">[{{ st.label_zh || st.stage }}]</span>
+          {{ st.status_zh || st.status }} · {{ stepSummary(st) }}
         </div>
       </div>
     </div>
@@ -448,6 +464,7 @@ createApp({
     const progress = ref({
       running: false,
       error: null,
+      notice: null,
       run_id: '',
       run_dir: '',
       current_stage: null,
@@ -473,6 +490,12 @@ createApp({
     const stageDefs = computed(() => {
       const keys = ['collect', 'extract', 'backfill', 'verify', 'excel', 'vote'];
       return keys.map(k => ({ key: k, label: stageLabels.value[k] || k }));
+    });
+    const bannerDetail = computed(() => {
+      const n = progress.value.notice;
+      if (n && n.detail) return n.detail;
+      if (n && n.text && n.text !== n.title) return n.text;
+      return progress.value.error || '';
     });
 
     async function loadConfig() {
@@ -573,6 +596,7 @@ createApp({
       if (!a || progress.value.running) return;
       if (collectMode.value === 'targets' && !confirmedTargets.value.length) {
         progress.value.error = '定向机型为空：请先配置并确认清单';
+        progress.value.notice = null;
         showTargets.value = true;
         return;
       }
@@ -590,6 +614,7 @@ createApp({
       if (!a || progress.value.running) return;
       if (collectMode.value === 'targets' && stage === 'collect' && !confirmedTargets.value.length) {
         progress.value.error = '定向机型为空：请先配置并确认清单';
+        progress.value.notice = null;
         showTargets.value = true;
         return;
       }
@@ -620,6 +645,7 @@ createApp({
       progress.value = {
         running: !!p.running,
         error: p.error,
+        notice: p.notice || null,
         run_id: p.run_id || '',
         run_dir: p.run_dir || '',
         current_stage: p.current_stage,
@@ -682,16 +708,25 @@ createApp({
       const m = progress.value.metrics[key] || {};
       if (st === 'running') return '运行中';
       if (st === 'failed') return '失败';
-      if (st !== 'done') return '待运行';
-      if (key === 'collect') return (m.devices != null) ? `${m.devices} 机` : '完成';
-      if (key === 'extract') return (m.assertions != null) ? `${m.assertions} 断言` : '完成';
-      if (key === 'backfill') return (m.rounds != null) ? `${m.rounds} 轮` : '完成';
-      if (key === 'verify') return (m.resolutions != null) ? `${m.resolutions} 决议` : '完成';
-      if (key === 'excel') return (m.rows != null) ? `${m.rows} 行` : '完成';
-      return '完成';
+      if (st !== 'done' && st !== 'partial') return '待运行';
+      let base = '完成';
+      if (key === 'collect') base = (m.devices != null) ? `${m.devices} 机` : '完成';
+      else if (key === 'extract') base = (m.assertions != null) ? `${m.assertions} 字段` : '完成';
+      else if (key === 'backfill') base = (m.rounds != null) ? `${m.rounds} 轮` : '完成';
+      else if (key === 'verify') base = (m.resolutions != null) ? `${m.resolutions} 决议` : '完成';
+      else if (key === 'excel') base = (m.rows != null) ? `${m.rows} 行` : '完成';
+      else if (key === 'vote' && m.voters != null) {
+        base = `${m.voters_with_hotspots || 0}/${m.voters} 套`;
+        if (m.audiences != null) {
+          base += ` · ${m.audiences_reviewed || 0}/${m.audiences} 受众`;
+        }
+      }
+      if (st === 'partial') return base === '完成' ? '有缺口' : `${base} · 有缺口`;
+      return base;
     }
 
     function stepSummary(st) {
+      if (st.summary_zh) return st.summary_zh;
       const m = st.metrics || {};
       const parts = Object.keys(m).slice(0, 4).map(k => `${k}=${m[k]}`);
       const err = (st.errors && st.errors.length) ? ` · ${st.errors[0]}` : '';
@@ -718,6 +753,7 @@ createApp({
     return {
       cfg, categories, stageDefs, progress, coverage, runs, tab, showConfig, saveMsg,
       showTargets, collectMode, targetsText, previewTargets, confirmedTargets, parseErrors, targetMsg,
+      bannerDetail,
       openConfig, doSave, persistQuick, onCategoryChange,
       doParseTargets, confirmTargets,
       runAll, runFrom, runResume, openArtifact,

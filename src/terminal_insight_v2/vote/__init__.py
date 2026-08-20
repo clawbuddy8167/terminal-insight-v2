@@ -1,4 +1,4 @@
-"""Vote package — six-voter hotspot ballots from resolved projection."""
+"""Vote package — six-voter ballots plus four-audience cluster reviews."""
 
 from .api import require_vote_inputs, run_vote
 

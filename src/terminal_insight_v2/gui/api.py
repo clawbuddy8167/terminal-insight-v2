@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional
 
 from terminal_insight_v2.category import list_category_ids
 from terminal_insight_v2.config import PROJECT_ROOT, STAGES, settings
+from terminal_insight_v2.gui.notice import annotate_steps, summarize_run_notice
 from terminal_insight_v2.gui.env_merge import merge_env_file
 from terminal_insight_v2.orchestrator import normalize_stages, run_pipeline
 from terminal_insight_v2.store.ledger import get_run, list_runs
@@ -280,8 +281,6 @@ class GuiApi:
                 with self._lock:
                     if rid:
                         self._active_run_id = rid
-                    if result.get("status") != "ok":
-                        self._error = f"流水线结束: {result.get('status')}"
             except Exception as exc:
                 with self._lock:
                     self._error = f"{type(exc).__name__}: {exc}"
@@ -327,7 +326,9 @@ class GuiApi:
             if name not in stage_status:
                 continue
             status = st.get("status") or "ok"
-            if status in ("ok", "skipped", "partial"):
+            if status == "partial":
+                stage_status[name] = "partial"
+            elif status in ("ok", "skipped"):
                 stage_status[name] = "done"
             elif status == "failed":
                 stage_status[name] = "failed"
@@ -335,23 +336,32 @@ class GuiApi:
 
         if self._running:
             for s in self._requested_stages:
-                if stage_status.get(s) not in ("done", "failed"):
+                if stage_status.get(s) not in ("done", "failed", "partial"):
                     stage_status[s] = "running"
                     break
 
         current = next((s for s in STAGES if stage_status.get(s) == "running"), None)
         meta = get_run(run_id) if run_id else None
+        artifacts = self._artifact_map(run_dir) if run_dir else {}
+        notice = summarize_run_notice(
+            steps,
+            run_status=str((meta or {}).get("status") or ""),
+            error=self._error,
+            running=self._running,
+            has_excel=bool(artifacts.get("excel")),
+        )
         return {
             "running": self._running,
-            "error": self._error,
+            "error": self._error if (notice or {}).get("level") == "error" else None,
+            "notice": notice,
             "run_id": run_id,
             "run_dir": str(run_dir) if run_dir else "",
             "run_status": (meta or {}).get("status") or "",
             "current_stage": current,
             "stage_status": stage_status,
             "metrics": metrics_by_stage,
-            "steps": steps[-30:],
-            "artifacts": self._artifact_map(run_dir) if run_dir else {},
+            "steps": annotate_steps(steps[-30:]),
+            "artifacts": artifacts,
         }
 
     def get_coverage(self, run_id: str = "") -> Dict[str, Any]:

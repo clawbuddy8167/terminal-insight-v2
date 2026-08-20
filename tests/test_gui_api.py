@@ -132,7 +132,7 @@ def test_gui_progress_marks_partial_done_and_next_running(tmp_path: Path, monkey
     api._running = True
     api._requested_stages = ["collect", "extract", "backfill", "verify", "excel", "vote"]
     prog = api.get_progress()
-    assert prog["stage_status"]["collect"] == "done"
+    assert prog["stage_status"]["collect"] == "partial"
     assert prog["stage_status"]["extract"] == "done"
     assert prog["stage_status"]["backfill"] == "running"
     assert prog["current_stage"] == "backfill"
@@ -163,4 +163,6 @@ def test_gui_run_pipeline_vote_without_resolved(tmp_path: Path, monkeypatch):
     prog = api.get_progress()
     assert not prog["running"]
     assert prog["run_id"]
-    assert prog["error"]
+    notice = prog["notice"] or {}
+    assert notice.get("level") == "error"
+    assert "没跑完" in notice.get("text", "")

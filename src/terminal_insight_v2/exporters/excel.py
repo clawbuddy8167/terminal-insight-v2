@@ -182,9 +182,23 @@ class ExcelStage(Stage):
                         ]
                     )
 
-        # Vote sheet placeholder; Vote stage fills rows
+        # Vote sheet placeholders; Vote stage fills rows
         ws4 = wb.create_sheet("亮点投票")
         ws4.append(["参考系", "取景框", "热点", "品牌", "机型", "说明"])
+        ws5 = wb.create_sheet("受众视角")
+        ws5.append(
+            [
+                "受众",
+                "参考系",
+                "热点",
+                "品牌",
+                "机型",
+                "相关度",
+                "为什么关注",
+                "行动启示",
+                "风险与证据边界",
+            ]
+        )
 
         run_dir = Path(ctx.run_dir)
         out_name = f"{ctx.category}_{ctx.date_start.replace('-', '')}-{ctx.date_end.replace('-', '')}.xlsx"

@@ -16,8 +16,9 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class LLMProvider:
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, *, thinking_enabled: bool = False):
         self.settings = settings
+        self.thinking_enabled = thinking_enabled
         self.call_count = 0
         self.retry_count = 0
         self._client: Optional[OpenAI] = None
@@ -42,7 +43,13 @@ class LLMProvider:
         temperature: float = 0.2,
         max_tokens: int = 4096,
         parse_retries: int = 3,
+        thinking: Optional[bool] = None,
     ) -> T:
+        use_thinking = self.thinking_enabled if thinking is None else thinking
+        # Thinking shares the same max_tokens budget as the final answer; leave headroom.
+        if use_thinking:
+            max_tokens = max(max_tokens, 8192)
+        token_cap = 32768 if use_thinking else 8192
         last_err: Exception | None = None
         for attempt in range(max(1, parse_retries)):
             try:
@@ -52,14 +59,20 @@ class LLMProvider:
                     temperature=temperature,
                     max_tokens=max_tokens,
                     use_json_object=True,
+                    thinking=use_thinking,
                 )
-                if not (text or "").strip():
-                    raise ValueError("empty LLM content")
+                # Reasoning can exhaust the budget → empty content + finish=length.
                 if finish == "length" and attempt + 1 < parse_retries:
                     self.retry_count += 1
-                    max_tokens = min(8192, int(max_tokens * 1.5))
+                    max_tokens = min(token_cap, max(int(max_tokens * 1.5), max_tokens + 2048))
                     time.sleep(0.4 * (attempt + 1))
+                    if not (text or "").strip():
+                        last_err = ValueError("empty LLM content (truncated by thinking)")
+                        continue
+                    # Prefer a longer retry over parsing truncated JSON.
                     continue
+                if not (text or "").strip():
+                    raise ValueError("empty LLM content")
                 data = parse_json_payload(text)
                 if data is None:
                     raise ValueError(f"LLM did not return valid JSON: {text[:240]}")
@@ -88,6 +101,7 @@ class LLMProvider:
         temperature: float,
         max_tokens: int,
         use_json_object: bool,
+        thinking: bool = False,
     ) -> tuple[str, str]:
         client = self._get_client()
         self.call_count += 1
@@ -100,11 +114,15 @@ class LLMProvider:
         )
         if use_json_object:
             payload["response_format"] = {"type": "json_object"}
+        create_kwargs: dict[str, Any] = dict(payload)
+        if thinking:
+            create_kwargs["reasoning_effort"] = "high"
+            create_kwargs["extra_body"] = {"thinking": {"type": "enabled"}}
         try:
-            resp = client.chat.completions.create(**payload)
+            resp = client.chat.completions.create(**create_kwargs)
         except BadRequestError:
-            payload.pop("response_format", None)
-            resp = client.chat.completions.create(**payload)
+            create_kwargs.pop("response_format", None)
+            resp = client.chat.completions.create(**create_kwargs)
         choice = resp.choices[0]
         return (choice.message.content or "").strip(), getattr(choice, "finish_reason", "") or ""
 

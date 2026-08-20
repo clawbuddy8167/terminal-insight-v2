@@ -452,7 +452,8 @@ Sheet 建议：
 | `{品类}参数` | Resolution.display_text（研究批次）或 Gold 值（对外批次，由 flag 控制） |
 | `字段信源` | field → urls / assertion ids |
 | `冲突与校验` | issues、mismatch、locked |
-| `亮点投票` | Vote 写入 |
+| `亮点投票` | Vote 写入（六参考系提名） |
+| `受众视角` | Vote 写入（四类受众对每条热点打分） |
 
 **对外模式**（`--report gold`）：空 Gold 字段留空，不得回填 Canonical。
 
@@ -460,8 +461,11 @@ Sheet 建议：
 
 - 输入：`resolved.json` 压缩投影（去掉空缺与纯 identity 噪音）+ `input_revision`。  
 - **AAA–FFF 六套参考系并行**：每人按自己的参考系 × 取景框提名 2–3 个热点；禁止同质化。  
-- 轻量方向聚类写入 `votes.json.clusters`，合并频次时保留「谁用哪套轴」。  
+- **LLM 方向聚类**（展示用）写入 `votes.json.clusters`；未分配热点各自成簇；禁止关键词桶回退。  
+- **四类受众审阅**（`schema_version=3`）：工信/监管、消费者、终端企业、上下游制造商对每条编号热点直接打分，写入 `votes.json.audience_reviews`。  
 - 回填 Excel「亮点投票」：`参考系 | 取景框 | 热点 | 品牌 | 机型 | 说明`。  
+- 回填 Excel「受众视角」：`受众 | 参考系 | 热点 | 品牌 | 机型 | 相关度 | 为什么关注 | 行动启示 | 风险与证据边界`。  
+- 失败语义：六票全空 → `failed`；六票可用但任一投票人或受众失败 → `partial`（保留已有票）；六票与四受众均完成 → `ok`。  
 - 若 `input_revision` 变化 → 覆盖旧 `votes.json`，不与旧票合并。  
 - 不联网搜新机；缺少 `resolved.json` 或 `OPENAI_API_KEY` 则失败（不再 stub skip）。
 
@@ -537,7 +541,7 @@ flowchart TD
 | `verification.json` | Verify | 人工 / Excel |
 | `resolved.json` | Verify | Excel / Vote |
 | `*.xlsx` | Excel | 业务交付 |
-| `votes.json` | Vote | Excel Sheet2 |
+| `votes.json` | Vote | Excel「亮点投票」「受众视角」 |
 
 ---
 

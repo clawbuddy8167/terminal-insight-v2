@@ -8,8 +8,16 @@ from openpyxl import load_workbook
 
 from terminal_insight_v2.models.stage import StageContext
 from terminal_insight_v2.vote.api import run_vote
-from terminal_insight_v2.vote.excel_write import HEADERS, SHEET_NAME
+from terminal_insight_v2.vote.excel_write import (
+    AUDIENCE_HEADERS,
+    AUDIENCE_SHEET_NAME,
+    HEADERS,
+    SHEET_NAME,
+)
 from terminal_insight_v2.vote.models import (
+    AUDIENCE_IDS,
+    AudienceAssessmentDraft,
+    AudienceReviewPayload,
     ClusterDraft,
     ClusterPayload,
     HotspotRationale,
@@ -18,7 +26,6 @@ from terminal_insight_v2.vote.models import (
     VoterBallot,
     VoterBallotPayload,
 )
-from terminal_insight_v2.vote.service import _heuristic_clusters, flatten_hotspots
 
 
 class FakeLLM:
@@ -33,6 +40,25 @@ class FakeLLM:
                 clusters=[
                     ClusterDraft(direction="高端影像升级", hotspot_ids=[1, 3, 5, 7, 9, 11]),
                     ClusterDraft(direction="超大容量电池与长续航", hotspot_ids=[2, 4, 6, 8, 10, 12]),
+                ]
+            )
+        if name == "AudienceReviewPayload":
+            return AudienceReviewPayload(
+                assessments=[
+                    AudienceAssessmentDraft(
+                        hotspot_index=1,
+                        relevance=3,
+                        why_it_matters="影像升级影响竞争格局",
+                        action_implication="跟进长焦路线",
+                        caveat="",
+                    ),
+                    AudienceAssessmentDraft(
+                        hotspot_index=2,
+                        relevance=2,
+                        why_it_matters="续航成为标配门槛",
+                        action_implication="核对电池规格",
+                        caveat="投影未给销量",
+                    ),
                 ]
             )
         voter = next((vid for vid in VOTER_IDS if f"热点投票人 {vid}" in system), "AAA")
@@ -106,62 +132,30 @@ def test_vote_stage_writes_votes_and_excel(tmp_path: Path, monkeypatch):
         input_revision="verify:run-vote-1",
         run_dir=str(run_dir),
     )
-    result = run_vote(ctx, llm=FakeLLM())
+    llm = FakeLLM()
+    result = run_vote(ctx, llm=llm)
     assert result.status == "ok"
     assert result.metrics["voters"] == 6
     assert result.metrics["hotspots"] == 12
     assert result.metrics["clusters"] == 2
+    assert result.metrics["audiences"] == 4
+    assert result.metrics["audiences_reviewed"] == 4
+    assert llm.call_count == 11
 
     data = json.loads((run_dir / "votes.json").read_text(encoding="utf-8"))
+    assert data["schema_version"] == 3
     assert [v["voter_id"] for v in data["voters"]] == list(VOTER_IDS)
-    assert data["voters"][0]["frame_name"] == "路线标尺"
-    assert data["voters"][0]["reference_frame"]
-    assert data["voters"][0]["hotspots"][0]["axis_tags"] == ["AAA"]
     assert data["clusters"][0]["voter_ids"]
-    assert data["clusters"][0]["axes_preserved"][0]["lens"]
+    assert [r["audience_id"] for r in data["audience_reviews"]] == list(AUDIENCE_IDS)
+    assert data["audience_reviews"][0]["assessments"][0]["hotspot_index"] == 1
+    assert data["audience_reviews"][0]["assessments"][0]["title"] == "AAA-影像"
 
     wb = load_workbook(result.artifacts["excel"])
     ws = wb[SHEET_NAME]
     assert [c.value for c in ws[1]] == HEADERS
     assert ws.max_row == 13
-    assert ws.cell(2, 1).value == data["voters"][0]["reference_frame"]
-    assert ws.cell(2, 2).value == data["voters"][0]["framing"]
-
-
-def test_heuristic_clusters_keep_axes():
-    ballots = [
-        VoterBallot(
-            voter_id="AAA",
-            reference_frame="产业范式 / 技术路线分岔",
-            framing="赛道",
-            hotspots=[
-                HotspotVote(
-                    title="长焦双路线",
-                    brand="华为",
-                    model="Pura 90",
-                    rationale=HotspotRationale(innovation="影像范式"),
-                )
-            ],
-        ),
-        VoterBallot(
-            voter_id="CCC",
-            reference_frame="硬规格 × 价位带",
-            framing="价位",
-            hotspots=[
-                HotspotVote(
-                    title="2000元万级电池",
-                    brand="vivo",
-                    model="Y600 Pro",
-                    rationale=HotspotRationale(innovation="续航下沉"),
-                )
-            ],
-        ),
-    ]
-    clusters = _heuristic_clusters(flatten_hotspots(ballots))
-    names = {c.direction for c in clusters}
-    assert "高端影像升级" in names
-    assert "超大容量电池与长续航" in names
-    by_dir = {c.direction: c for c in clusters}
-    assert by_dir["高端影像升级"].voter_ids == ["AAA"]
-    assert by_dir["高端影像升级"].axes_preserved[0].lens == "路线对垒"
-    assert by_dir["超大容量电池与长续航"].voter_ids == ["CCC"]
+    aws = wb[AUDIENCE_SHEET_NAME]
+    assert [c.value for c in aws[1]] == AUDIENCE_HEADERS
+    assert aws.max_row == 9
+    assert aws.cell(2, 1).value == "工信/监管"
+    assert aws.cell(2, 3).value == "AAA-影像"

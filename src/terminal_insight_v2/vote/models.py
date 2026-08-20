@@ -1,4 +1,4 @@
-"""Vote stage contracts: ballots, clusters, and the votes.json artifact."""
+"""Vote stage contracts: ballots, clusters, audience reviews, and votes.json."""
 from __future__ import annotations
 
 from typing import List, Literal, Optional
@@ -7,6 +7,9 @@ from pydantic import BaseModel, Field, field_validator
 
 VoterId = Literal["AAA", "BBB", "CCC", "DDD", "EEE", "FFF"]
 VOTER_IDS: tuple[VoterId, ...] = ("AAA", "BBB", "CCC", "DDD", "EEE", "FFF")
+
+AudienceId = Literal["REG", "CON", "OEM", "SUP"]
+AUDIENCE_IDS: tuple[AudienceId, ...] = ("REG", "CON", "OEM", "SUP")
 
 
 class HotspotRationale(BaseModel):
@@ -76,8 +79,41 @@ class ClusterPayload(BaseModel):
     clusters: List[ClusterDraft] = Field(default_factory=list)
 
 
+class AudienceAssessmentDraft(BaseModel):
+    """LLM output for one numbered hotspot; identity is stamped by the stage."""
+
+    hotspot_index: int
+    relevance: int = 0
+    why_it_matters: str = ""
+    action_implication: str = ""
+    caveat: str = ""
+
+
+class AudienceReviewPayload(BaseModel):
+    assessments: List[AudienceAssessmentDraft] = Field(default_factory=list)
+
+
+class AudienceAssessment(BaseModel):
+    hotspot_index: int
+    voter_id: str = ""
+    frame_name: str = ""
+    title: str = ""
+    brand: str = ""
+    model: str = ""
+    relevance: int = 0
+    why_it_matters: str = ""
+    action_implication: str = ""
+    caveat: str = ""
+
+
+class AudienceReview(BaseModel):
+    audience_id: AudienceId
+    name: str
+    assessments: List[AudienceAssessment] = Field(default_factory=list)
+
+
 class VotesArtifact(BaseModel):
-    schema_version: int = 1
+    schema_version: int = 3
     run_id: str
     category: str
     schema_fingerprint: str = ""
@@ -85,6 +121,7 @@ class VotesArtifact(BaseModel):
     generated_at: str = ""
     voters: List[VoterBallot] = Field(default_factory=list)
     clusters: List[DirectionCluster] = Field(default_factory=list)
+    audience_reviews: List[AudienceReview] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
 
 
