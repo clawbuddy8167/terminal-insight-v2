@@ -5,6 +5,8 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from terminal_insight_v2.hypothesis.models import HypothesisReview
+
 VoterId = Literal["AAA", "BBB", "CCC", "DDD", "EEE", "FFF"]
 VOTER_IDS: tuple[VoterId, ...] = ("AAA", "BBB", "CCC", "DDD", "EEE", "FFF")
 
@@ -113,7 +115,7 @@ class AudienceReview(BaseModel):
 
 
 class VotesArtifact(BaseModel):
-    schema_version: int = 3
+    schema_version: int = 4
     run_id: str
     category: str
     schema_fingerprint: str = ""
@@ -122,6 +124,7 @@ class VotesArtifact(BaseModel):
     voters: List[VoterBallot] = Field(default_factory=list)
     clusters: List[DirectionCluster] = Field(default_factory=list)
     audience_reviews: List[AudienceReview] = Field(default_factory=list)
+    hypothesis_reviews: List[HypothesisReview] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
 
 

@@ -29,6 +29,19 @@ AUDIENCE_HEADERS = [
 ]
 _AUDIENCE_WIDTHS = (14, 18, 28, 12, 18, 8, 32, 32, 32)
 
+HYPOTHESIS_SHEET_NAME = "假说对照"
+HYPOTHESIS_HEADERS = [
+    "假说ID",
+    "命题摘要",
+    "立场",
+    "参考系",
+    "热点",
+    "品牌",
+    "机型",
+    "说明",
+]
+_HYPOTHESIS_WIDTHS = (10, 36, 10, 12, 24, 12, 18, 36)
+
 
 def find_workbook(run_dir: Path) -> Optional[Path]:
     files = sorted(p for p in run_dir.glob("*.xlsx") if not p.name.startswith("~$"))
@@ -47,6 +60,7 @@ def write_vote_sheet(path: Path, artifact: VotesArtifact) -> Path:
             wb.remove(default)
     _fill_hotspot_sheet(_ensure_sheet(wb, SHEET_NAME), artifact)
     _fill_audience_sheet(_ensure_sheet(wb, AUDIENCE_SHEET_NAME), artifact)
+    _fill_hypothesis_sheet(_ensure_sheet(wb, HYPOTHESIS_SHEET_NAME), artifact)
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
     return path
@@ -121,3 +135,25 @@ def _fill_audience_sheet(ws: Worksheet, artifact: VotesArtifact) -> None:
                 ]
             )
     _apply_widths_and_wrap(ws, _AUDIENCE_WIDTHS)
+
+
+def _fill_hypothesis_sheet(ws: Worksheet, artifact: VotesArtifact) -> None:
+    _reset_sheet(ws, HYPOTHESIS_HEADERS)
+    by_voter = {b.voter_id: b for b in artifact.voters}
+    for item in artifact.hypothesis_reviews:
+        ballot = by_voter.get(item.voter_id)
+        frame = ballot.frame_name if ballot else item.voter_id
+        statement = (item.statement or "")[:80]
+        ws.append(
+            [
+                item.hypothesis_id,
+                statement,
+                item.stance,
+                frame,
+                item.title,
+                item.brand,
+                item.model,
+                item.note,
+            ]
+        )
+    _apply_widths_and_wrap(ws, _HYPOTHESIS_WIDTHS)

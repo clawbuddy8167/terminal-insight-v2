@@ -82,6 +82,7 @@ class Settings(BaseSettings):
     http_timeout: float = 30.0
     jina_reader_enabled: bool = True
     fetch_min_body_len: int = 300
+    hypotheses_path: str = ""  # optional year catalog; empty → data/hypotheses/{category}*.json
 
     memory_db_path: str = ""  # empty → data/memory/facts.db
 

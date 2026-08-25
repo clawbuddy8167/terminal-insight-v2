@@ -113,9 +113,11 @@ def test_vote_stage_writes_votes_and_excel(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("DATA_ROOT", str(tmp_path / "data"))
     from terminal_insight_v2.config import Settings
     import terminal_insight_v2.vote.api as vote_api
+    import terminal_insight_v2.hypothesis.loader as hypo_loader
 
     s = Settings(_env_file=None, data_root=str(tmp_path / "data"), openai_api_key="test-key")
     monkeypatch.setattr(vote_api, "settings", s)
+    monkeypatch.setattr(hypo_loader, "settings", s)
 
     run_dir = tmp_path / "run"
     run_dir.mkdir()
@@ -140,10 +142,12 @@ def test_vote_stage_writes_votes_and_excel(tmp_path: Path, monkeypatch):
     assert result.metrics["clusters"] == 2
     assert result.metrics["audiences"] == 4
     assert result.metrics["audiences_reviewed"] == 4
+    assert result.metrics["hypothesis_mappings"] == 0
     assert llm.call_count == 11
 
     data = json.loads((run_dir / "votes.json").read_text(encoding="utf-8"))
-    assert data["schema_version"] == 3
+    assert data["schema_version"] == 4
+    assert data["hypothesis_reviews"] == []
     assert [v["voter_id"] for v in data["voters"]] == list(VOTER_IDS)
     assert data["clusters"][0]["voter_ids"]
     assert [r["audience_id"] for r in data["audience_reviews"]] == list(AUDIENCE_IDS)

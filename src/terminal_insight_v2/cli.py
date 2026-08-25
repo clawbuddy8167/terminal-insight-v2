@@ -4,11 +4,12 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
 from rich.console import Console
 
 from terminal_insight_v2 import __version__
-from terminal_insight_v2.config import STAGES, settings
+from terminal_insight_v2.config import PROJECT_ROOT, STAGES, settings
 from terminal_insight_v2.orchestrator import run_pipeline
 from terminal_insight_v2.store import ensure_memory_dirs
 from terminal_insight_v2.store.db import schema_version
@@ -47,6 +48,10 @@ def _cmd_run(args: argparse.Namespace) -> int:
         except FileNotFoundError as exc:
             console.print(f"[yellow]{exc}; 使用 fingerprint=pending[/]")
             fingerprint = "pending"
+    extras = {}
+    hypo = (getattr(args, "hypotheses", None) or "").strip()
+    if hypo:
+        extras["hypotheses_path"] = hypo
     result = run_pipeline(
         category=category,
         stages=stages,
@@ -54,6 +59,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         date_end=args.end or settings.date_end,
         schema_fingerprint=fingerprint,
         resume_run_id=args.resume or None,
+        extras=extras or None,
     )
     console.print_json(json.dumps(result, ensure_ascii=False))
     return 0 if result.get("status") == "ok" else 1
@@ -83,6 +89,40 @@ def _cmd_gui(_args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_ledger_settle(args: argparse.Namespace) -> int:
+    from terminal_insight_v2.hypothesis.api import run_settle
+
+    hypo = Path(args.hypothesis)
+    if not hypo.is_absolute():
+        hypo = PROJECT_ROOT / hypo
+    run_ids = [r.strip() for r in (args.runs or "").split(",") if r.strip()]
+    if not run_ids:
+        console.print("[red]--runs 需要至少一个 run_id（逗号分隔）[/]")
+        return 2
+    out = Path(args.out)
+    if not out.is_absolute():
+        out = PROJECT_ROOT / out
+    try:
+        artifact = run_settle(
+            hypothesis_path=hypo,
+            run_ids=run_ids,
+            out_dir=out,
+        )
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"[red]settle failed: {exc}[/]")
+        return 1
+    console.print(
+        f"ok settlements={len(artifact.settlements)} "
+        f"oem_slice={len(artifact.oem_slice)} errors={len(artifact.errors)}"
+    )
+    console.print(f"wrote {out / 'settlement.json'}")
+    console.print(f"wrote {out / 'settlement.xlsx'}")
+    if artifact.errors:
+        for err in artifact.errors[:10]:
+            console.print(f"[yellow]{err}[/]")
+    return 0 if not artifact.errors else 0  # missing quarters are soft errors
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="terminal-insight-v2",
@@ -109,6 +149,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="",
         help="override category schema fingerprint (default: compile from Excel)",
     )
+    run.add_argument(
+        "--hypotheses",
+        default="",
+        help="optional hypothesis catalog JSON (Vote mapping); empty → auto-discover",
+    )
     run.set_defaults(func=_cmd_run)
 
     cat = sub.add_parser("category", help="Category template tools")
@@ -122,6 +167,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="do not write compiled JSON / DB row",
     )
     compile_p.set_defaults(func=_cmd_category_compile)
+
+    ledger = sub.add_parser("ledger", help="Cross-run research ledger (not a pipeline stage)")
+    ledger_sub = ledger.add_subparsers(dest="ledger_cmd", required=True)
+    settle_p = ledger_sub.add_parser(
+        "settle",
+        help="Settle hypotheses against multiple quarterly votes.json",
+    )
+    settle_p.add_argument(
+        "--hypothesis",
+        required=True,
+        help="path to HypothesisSet JSON",
+    )
+    settle_p.add_argument(
+        "--runs",
+        required=True,
+        help="comma-separated run_id list under data/runs/",
+    )
+    settle_p.add_argument(
+        "--out",
+        required=True,
+        help="output directory for settlement.json / settlement.xlsx",
+    )
+    settle_p.set_defaults(func=_cmd_ledger_settle)
 
     gui = sub.add_parser("gui", help="Open local desktop GUI (PyWebView)")
     gui.set_defaults(func=_cmd_gui)

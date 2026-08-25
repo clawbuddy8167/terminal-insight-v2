@@ -214,10 +214,19 @@ flowchart LR
 
 | | |
 |--|--|
-| **目标** | AAA–FFF 六套参考系 × 取景框热点提报；LLM 方向聚类（展示）；四类受众对每条热点直接打分 |
-| **输入** | 与 Excel 同源的 `resolved.json` 投影 |
-| **输出** | `votes.json`（六票 + LLM 聚类 + 四受众热点审阅）；回填 Excel「亮点投票」「受众视角」 |
-| **闸门** | `input_revision` 变化时覆盖旧 vote；禁止编造投影外机型；受众审阅不得补写事实 |
+| **目标** | AAA–FFF 六套参考系 × 取景框热点提报；LLM 方向聚类（展示）；四类受众对每条热点直接打分；可选假说对照 |
+| **输入** | 与 Excel 同源的 `resolved.json` 投影；可选 `hypotheses.json`（研究层） |
+| **输出** | `votes.json`（六票 + LLM 聚类 + 四受众审阅 + 假说对照）；回填 Excel「亮点投票」「受众视角」「假说对照」 |
+| **闸门** | `input_revision` 变化时覆盖旧 vote；禁止编造投影外机型；受众审阅与假说对照不得补写事实 |
+
+### 研究层 — 假说与跨 run 结算（非 Stage）
+
+| | |
+|--|--|
+| **目标** | 将上年蓝皮书蒸馏为可证伪假说；季度 Vote 对照打标；年底对多 run 做确定性结算 |
+| **输入** | `data/hypotheses/{category}-YYYY.json`；各季 `data/runs/{id}/votes.json` |
+| **输出** | `settlement.json` / `settlement.xlsx`（CLI `ledger settle`） |
+| **纪律** | 假说、对照、结算均为研究派生，**禁止**写回 `resolved.json` / facts.db / Gold；不编入 `STAGES` |
 
 ---
 

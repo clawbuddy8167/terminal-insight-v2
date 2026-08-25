@@ -5,7 +5,9 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .env
-data/
+data/*
+!data/hypotheses/
+!data/hypotheses/**
 *.egg-info/
 dist/
 build/
