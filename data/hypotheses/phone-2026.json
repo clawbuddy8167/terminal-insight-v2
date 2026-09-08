@@ -1,8 +1,8 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "year": 2026,
   "category": "phone",
-  "source": "新一代智能终端蓝皮书（2025年）·中国信息通信研究院",
+  "source": "蒸馏自《新一代智能终端蓝皮书（2025年）》·中国信息通信研究院；推断部分见各条 confidence",
   "hypotheses": [
     {
       "id": "H1",
@@ -14,7 +14,12 @@
       ],
       "falsify_when": "连续两季仅旗舰具备 L3 场景覆盖，中端仍停留在 L1/L2 单点功能。",
       "vendor_implication": "中端 SoC/NPU 与端侧小模型适配窗口；产品线需按价位规划智能体能力分层。",
-      "frames": ["CCC", "AAA", "FFF"]
+      "frames": ["CCC", "AAA", "FFF"],
+      "source_refs": [
+        "p10: 表1 手机代表产品发布情况汇总（多为旗舰档）",
+        "p12–14: AI 手机 L3 级任务完成度与子场景测评"
+      ],
+      "confidence": "inferred"
     },
     {
       "id": "H2",
@@ -26,7 +31,12 @@
       ],
       "falsify_when": "连续两季仍以本厂 App 演示为主，跨品牌应用接口无实质打通。",
       "vendor_implication": "优先投入意图框架适配与生态合作，而非仅堆叠演示脚本。",
-      "frames": ["AAA", "BBB", "FFF"]
+      "frames": ["AAA", "BBB", "FFF"],
+      "source_refs": [
+        "p53–54: 意图框架标准（TTAF 282/283）与 App Intent / appfunctions",
+        "p54: 荣耀 YOYO「一句话下单咖啡」演示跨应用调度"
+      ],
+      "confidence": "inferred"
     },
     {
       "id": "H3",
@@ -38,19 +48,46 @@
       ],
       "falsify_when": "主动服务全面默认开启且无用户可控授权，亦无标准/监管压力信号。",
       "vendor_implication": "隐私与主动服务 UX 需与智能体能力同步设计；供应链侧关注端侧脱敏与本地推理。",
-      "frames": ["FFF", "EEE", "DDD"]
+      "frames": ["FFF", "EEE", "DDD"],
+      "source_refs": [
+        "p23: 「更贴心：主动服务进化为场景预见」",
+        "p56: 安全与隐私体系筑牢，构建可信 AI 终端基石"
+      ],
+      "confidence": "inferred"
     },
     {
-      "id": "H4",
-      "statement": "手机电池竞赛在约 8000mAh 量级后，主叙事将从「更大容量」转向能效调度、快充互通与 AI 负载下的续航体验。",
+      "id": "H4a",
+      "statement": "在主流热门机电池已普遍超过约 4800mAh、个别达约 8300mAh 的背景下，2026 年续航主叙事仍将以刷新容量纪录为核心，而非让位于能效叙述。",
       "lead_indicators": [
-        "旗舰发布突出 AI 动态功耗/硅碳与轻薄平衡而非单纯 mAh",
+        "中端/千元档机型以 8000mAh+ 容量为发布会主卖点",
+        "跨品牌同期刷新容量纪录进入热点提名",
+        "卖点文案强调 mAh 数字而非 AI 动态功耗"
+      ],
+      "falsify_when": "连续两季热门机续航主叙事以 AI 动态能效/场景续航实测为主，容量数字退居次要。",
+      "vendor_implication": "电芯与堆叠工艺仍是中端差异化；勿过早假设容量竞赛结束。",
+      "frames": ["CCC", "AAA", "FFF"],
+      "source_refs": [
+        "p53: 2025 年主流热门机型电池容量普遍超过 4800mAh，个别达 8300mAh（表11）",
+        "p53: 受终端体积所限，电池容量无法持续扩充；理论估算不高于约 17900mAh"
+      ],
+      "confidence": "inferred"
+    },
+    {
+      "id": "H4b",
+      "statement": "快充互通与 AI 动态能效调度将成为与容量并列的续航卖点，弥补「无法持续扩充」的体积瓶颈。",
+      "lead_indicators": [
         "UFCS 等互通功率提升进入卖点",
+        "旗舰发布突出 AI 动态功耗/硅碳与轻薄平衡",
         "端侧大模型耗电占比成为公开对比项"
       ],
-      "falsify_when": "连续两季热门机仍以刷新容量纪录为唯一续航主叙事，且无视能效与互通。",
-      "vendor_implication": "电芯材料仍重要，但电源管理 IC、快充协议与 AI 调度成为差异化重点。",
-      "frames": ["CCC", "AAA", "BBB"]
+      "falsify_when": "连续两季热门机续航叙事完全忽略快充互通与能效调度，仅拼容量数字。",
+      "vendor_implication": "电源管理 IC、快充协议与 AI 调度成为差异化重点。",
+      "frames": ["CCC", "AAA", "BBB"],
+      "source_refs": [
+        "p33 表5: 能效管理从「加大电池」到「精打细算」（电池扩容→AI 动态能效平衡）",
+        "p53–54: 快充成为弥补续航短板的核心手段；图12 端侧本地模型耗电占比；图13 快充功率进阶"
+      ],
+      "confidence": "direct_quote"
     },
     {
       "id": "H5",
@@ -62,11 +99,16 @@
       ],
       "falsify_when": "主流旗舰坚持纯端侧大模型常驻且续航不恶化、亦无端云调度叙事。",
       "vendor_implication": "芯片与 OS 团队需联合优化卸载策略；模组商关注低功耗 NPU 场景而非峰值 TOPS。",
-      "frames": ["AAA", "EEE", "DDD"]
+      "frames": ["AAA", "EEE", "DDD"],
+      "source_refs": [
+        "p46/图12: 端侧本地模型耗电占比",
+        "p48: 操作系统与 AI 深度融合，构建端云协同智能中枢"
+      ],
+      "confidence": "inferred"
     },
     {
       "id": "H6",
-      "statement": "终端智能体互联将从私有协议走向可互操作的标准协议（意图框架、MCP/A2A 等），「一次开发、多端部署」成为生态门槛。",
+      "statement": "终端智能体互联将从私有协议走向可互操作的标准协议（意图框架等），「一次开发、多端部署」成为生态门槛。",
       "lead_indicators": [
         "国标/团标意图框架落地到量产系统",
         "多家终端与应用厂商公开兼容同一通信/意图接口",
@@ -74,7 +116,12 @@
       ],
       "falsify_when": "各品牌智能体仍完全封闭，无跨厂协议或仅停留在研究报告。",
       "vendor_implication": "应用与中间件厂商应跟标准窗口；整机厂避免只做演示级封闭 Agent。",
-      "frames": ["DDD", "AAA", "EEE"]
+      "frames": ["DDD", "AAA", "EEE"],
+      "source_refs": [
+        "p55: 聚焦智能体交互协议标准，破除互联互通壁垒",
+        "p61: 加快标准统一，打通「一次开发、多端部署」的技术底座"
+      ],
+      "confidence": "direct_quote"
     },
     {
       "id": "H7",
@@ -86,7 +133,12 @@
       ],
       "falsify_when": "连续两季旗舰回归单一主摄参数竞赛，长焦无实质升级或跟进。",
       "vendor_implication": "光学模组、潜望棱镜与大底长焦传感器需求分化；需按路线备料。",
-      "frames": ["AAA", "BBB", "CCC"]
+      "frames": ["AAA", "BBB", "CCC"],
+      "source_refs": [
+        "p39: 潜望式长焦技术将突破现有光学变焦限制，有望实现更高的光学变焦倍数",
+        "p38–39: 多摄系统全焦段覆盖；计算摄影与 AI 深度协同"
+      ],
+      "confidence": "inferred"
     },
     {
       "id": "H8",
@@ -98,7 +150,9 @@
       ],
       "falsify_when": "折痕与耐用性不再被讨论，折叠仅拼厚度/铰链参数且销量叙事停滞。",
       "vendor_implication": "铰链、记忆玻璃与面板供应链；软件侧折叠多窗与智能体联动。",
-      "frames": ["BBB", "FFF", "EEE"]
+      "frames": ["BBB", "FFF", "EEE"],
+      "source_refs": [],
+      "confidence": "extrapolated"
     },
     {
       "id": "H9",
@@ -110,11 +164,16 @@
       ],
       "falsify_when": "自动化任务停留在单 App 内工具，无法跨应用闭环且用户仍多轮点击。",
       "vendor_implication": "OS 与智能体平台能力成为差异化；应用需原子化技能以便被调度。",
-      "frames": ["FFF", "AAA", "BBB"]
+      "frames": ["FFF", "AAA", "BBB"],
+      "source_refs": [
+        "p22–25: 「四新」特征——意图驱动、场景预见、服务共生",
+        "p50: 终端智能体定义服务新范式，开启服务找人时代"
+      ],
+      "confidence": "inferred"
     },
     {
       "id": "H10",
-      "statement": "安全与隐私纵深防御（端云加密、用后即焚、权限最小化）将成为 AI 终端规模化普及的前置条件，而非可选附录。",
+      "statement": "安全与隐私纵深防御（端云加密、权限最小化、可信验证）将成为 AI 终端规模化普及的前置条件，而非可选附录。",
       "lead_indicators": [
         "生成式 AI 标识/安全国标进入产品合规清单",
         "厂商主叙事含端侧闭环与云端可信验证",
@@ -122,7 +181,12 @@
       ],
       "falsify_when": "AI 功能大规模上线却无对应隐私/安全产品化能力，亦无测评压力。",
       "vendor_implication": "安全芯片、TEE、隐私计算与合规测评成为整机与云服务共同成本。",
-      "frames": ["EEE", "DDD"]
+      "frames": ["EEE", "DDD"],
+      "source_refs": [
+        "p56: 安全与隐私体系筑牢，构建可信 AI 终端基石",
+        "p62: 构建安全可信生态，推动开源协同与用户权益保障并重"
+      ],
+      "confidence": "direct_quote"
     }
   ]
 }

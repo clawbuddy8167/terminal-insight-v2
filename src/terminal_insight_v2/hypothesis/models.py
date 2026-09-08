@@ -8,8 +8,17 @@ from pydantic import BaseModel, Field, field_validator
 Stance = Literal["support", "weaken", "unrelated"]
 STANCES: tuple[Stance, ...] = ("support", "weaken", "unrelated")
 
-Verdict = Literal["confirmed", "partial", "falsified", "insufficient"]
-VERDICTS: tuple[Verdict, ...] = ("confirmed", "partial", "falsified", "insufficient")
+Confidence = Literal["direct_quote", "inferred", "extrapolated"]
+CONFIDENCES: tuple[Confidence, ...] = ("direct_quote", "inferred", "extrapolated")
+
+Verdict = Literal["confirmed", "partial", "falsified", "insufficient", "alert"]
+VERDICTS: tuple[Verdict, ...] = (
+    "confirmed",
+    "partial",
+    "falsified",
+    "insufficient",
+    "alert",
+)
 
 
 class Hypothesis(BaseModel):
@@ -19,6 +28,8 @@ class Hypothesis(BaseModel):
     falsify_when: str = ""
     vendor_implication: str = ""
     frames: List[str] = Field(default_factory=list)
+    source_refs: List[str] = Field(default_factory=list)
+    confidence: Confidence = "inferred"
 
     @field_validator("id")
     @classmethod
@@ -28,11 +39,18 @@ class Hypothesis(BaseModel):
             raise ValueError("hypothesis id must be non-empty")
         return clipped
 
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def _coerce_confidence(cls, value: object) -> object:
+        if value is None or value == "":
+            return "inferred"
+        return value
+
 
 class HypothesisSet(BaseModel):
     """Year-level input: falsifiable propositions distilled from prior bluebook."""
 
-    schema_version: int = 1
+    schema_version: int = 2
     year: int
     category: str
     source: str = ""
@@ -55,7 +73,18 @@ class HypothesisMappingDraft(BaseModel):
     hypothesis_id: str
     hotspot_index: int
     stance: Stance
+    evidence: str = ""
+    strength: int = 1
     note: str = ""
+
+    @field_validator("strength", mode="before")
+    @classmethod
+    def _clamp_strength(cls, value: object) -> int:
+        try:
+            n = int(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return 1
+        return max(1, min(3, n))
 
 
 class HypothesisMappingPayload(BaseModel):
@@ -74,6 +103,8 @@ class HypothesisReview(BaseModel):
     brand: str = ""
     model: str = ""
     stance: Stance
+    evidence: str = ""
+    strength: int = 1
     note: str = ""
     statement: str = ""
 
@@ -104,6 +135,7 @@ class HypothesisSettlement(BaseModel):
     verdict: Verdict
     by_quarter: List[QuarterStance] = Field(default_factory=list)
     representatives: List[RepresentativeHotspot] = Field(default_factory=list)
+    voter_coverage: List[str] = Field(default_factory=list)
     note: str = ""
 
 

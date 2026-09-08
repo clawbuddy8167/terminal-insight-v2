@@ -38,9 +38,11 @@ HYPOTHESIS_HEADERS = [
     "热点",
     "品牌",
     "机型",
+    "证据锚点",
+    "强度",
     "说明",
 ]
-_HYPOTHESIS_WIDTHS = (10, 36, 10, 12, 24, 12, 18, 36)
+_HYPOTHESIS_WIDTHS = (10, 36, 10, 12, 24, 12, 18, 28, 6, 32)
 
 
 def find_workbook(run_dir: Path) -> Optional[Path]:
@@ -153,6 +155,8 @@ def _fill_hypothesis_sheet(ws: Worksheet, artifact: VotesArtifact) -> None:
                 item.title,
                 item.brand,
                 item.model,
+                item.evidence,
+                item.strength,
                 item.note,
             ]
         )

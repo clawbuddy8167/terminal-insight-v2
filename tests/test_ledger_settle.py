@@ -1,4 +1,4 @@
-"""Cross-run ledger settle: deterministic verdicts."""
+"""Cross-run ledger settle: deterministic verdicts including alert."""
 from __future__ import annotations
 
 import json
@@ -41,13 +41,14 @@ def _votes(
             }
         )
     return {
-        "schema_version": 4,
+        "schema_version": 5,
         "run_id": run_id,
         "category": "phone",
         "voters": [],
         "clusters": [],
         "audience_reviews": reviews,
         "hypothesis_reviews": mappings,
+        "hypothesis_disputes": [],
         "errors": [],
     }
 
@@ -65,6 +66,7 @@ def test_settle_confirmed_and_falsified(tmp_path: Path):
     catalog.write_text(
         json.dumps(
             {
+                "schema_version": 2,
                 "year": 2026,
                 "category": "phone",
                 "source": "test",
@@ -91,6 +93,7 @@ def test_settle_confirmed_and_falsified(tmp_path: Path):
                     "title": "中端智能体",
                     "stance": "support",
                     "voter_id": "CCC",
+                    "evidence": "智能体：多步骤闭环",
                 },
                 {
                     "hypothesis_id": "H2",
@@ -98,6 +101,7 @@ def test_settle_confirmed_and_falsified(tmp_path: Path):
                     "title": "封闭演示",
                     "stance": "weaken",
                     "voter_id": "AAA",
+                    "evidence": "仅本厂 App 演示",
                 },
             ],
             oem=True,
@@ -115,6 +119,7 @@ def test_settle_confirmed_and_falsified(tmp_path: Path):
                     "title": "3000元 L3",
                     "stance": "support",
                     "voter_id": "CCC",
+                    "evidence": "价位：约3000",
                 },
                 {
                     "hypothesis_id": "H2",
@@ -122,6 +127,7 @@ def test_settle_confirmed_and_falsified(tmp_path: Path):
                     "title": "仍无第三方",
                     "stance": "weaken",
                     "voter_id": "FFF",
+                    "evidence": "无第三方接入",
                 },
             ],
         ),
@@ -131,12 +137,12 @@ def test_settle_confirmed_and_falsified(tmp_path: Path):
         "q3",
         _votes(run_id="q3", mappings=[]),
     )
-    # q4 missing entirely
 
     hypo = load_hypothesis_set(catalog)
     art = settle_runs(hypo, ["q1", "q2", "q3", "q4"], runs_root=runs)
     by_id = {s.hypothesis_id: s for s in art.settlements}
     assert by_id["H1"].verdict == "confirmed"
+    assert "CCC" in by_id["H1"].voter_coverage
     assert by_id["H2"].verdict == "falsified"
     assert by_id["H3"].verdict == "insufficient"
     assert any("q4" in e for e in art.errors)
@@ -149,6 +155,7 @@ def test_settle_partial_single_quarter(tmp_path: Path):
     catalog.write_text(
         json.dumps(
             {
+                "schema_version": 2,
                 "year": 2026,
                 "category": "phone",
                 "hypotheses": [{"id": "H1", "statement": "only one"}],
@@ -168,6 +175,8 @@ def test_settle_partial_single_quarter(tmp_path: Path):
                     "hotspot_index": 1,
                     "title": "信号",
                     "stance": "support",
+                    "voter_id": "AAA",
+                    "evidence": "字段：有信号",
                 }
             ],
         ),
@@ -175,3 +184,74 @@ def test_settle_partial_single_quarter(tmp_path: Path):
     _write_run(runs, "q2", _votes(run_id="q2", mappings=[]))
     art = settle_runs(load_hypothesis_set(catalog), ["q1", "q2"], runs_root=runs)
     assert art.settlements[0].verdict == "partial"
+
+
+def test_settle_alert_single_quarter_multi_voter_weaken(tmp_path: Path):
+    catalog = tmp_path / "hypo.json"
+    catalog.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "year": 2026,
+                "category": "phone",
+                "hypotheses": [{"id": "H4a", "statement": "容量主叙事"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    runs = tmp_path / "runs"
+    mappings = [
+        {
+            "hypothesis_id": "H4a",
+            "hotspot_index": i,
+            "title": f"大电池{i}",
+            "stance": "weaken",
+            "voter_id": voter,
+            "evidence": f"电池容量：{9000 + i}mAh",
+        }
+        for i, voter in enumerate(("AAA", "CCC", "DDD", "EEE"), start=1)
+    ]
+    _write_run(runs, "q1", _votes(run_id="q1", mappings=mappings))
+    _write_run(runs, "q2", _votes(run_id="q2", mappings=[]))
+    art = settle_runs(load_hypothesis_set(catalog), ["q1", "q2"], runs_root=runs)
+    row = art.settlements[0]
+    assert row.verdict == "alert"
+    assert "weaken×4" in row.note
+    assert set(row.voter_coverage) >= {"AAA", "CCC", "DDD"}
+
+
+def test_settle_no_alert_when_weaken_below_threshold(tmp_path: Path):
+    catalog = tmp_path / "hypo.json"
+    catalog.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "year": 2026,
+                "category": "phone",
+                "hypotheses": [{"id": "H4a", "statement": "容量"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    runs = tmp_path / "runs"
+    mappings = [
+        {
+            "hypothesis_id": "H4a",
+            "hotspot_index": 1,
+            "title": "大电池",
+            "stance": "weaken",
+            "voter_id": "AAA",
+            "evidence": "电池容量：10000mAh",
+        },
+        {
+            "hypothesis_id": "H4a",
+            "hotspot_index": 2,
+            "title": "续航",
+            "stance": "weaken",
+            "voter_id": "CCC",
+            "evidence": "电池容量：9700mAh",
+        },
+    ]
+    _write_run(runs, "q1", _votes(run_id="q1", mappings=mappings))
+    art = settle_runs(load_hypothesis_set(catalog), ["q1"], runs_root=runs)
+    assert art.settlements[0].verdict == "insufficient"

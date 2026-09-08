@@ -454,7 +454,7 @@ Sheet 建议：
 | `冲突与校验` | issues、mismatch、locked |
 | `亮点投票` | Vote 写入（六参考系提名） |
 | `受众视角` | Vote 写入（四类受众对每条热点打分） |
-| `假说对照` | Vote 写入（可选：热点 × 年度假说 stance） |
+| `假说对照` | Vote 写入（可选：热点 × 年度假说 stance + 证据锚点） |
 
 **对外模式**（`--report gold`）：空 Gold 字段留空，不得回填 Canonical。
 
@@ -464,14 +464,15 @@ Sheet 建议：
 - **AAA–FFF 六套参考系并行**：每人按自己的参考系 × 取景框提名 2–3 个热点；禁止同质化。  
 - **LLM 方向聚类**（展示用）写入 `votes.json.clusters`；未分配热点各自成簇；禁止关键词桶回退。  
 - **四类受众审阅**（`schema_version≥3`）：工信/监管、消费者、终端企业、上下游制造商对每条编号热点直接打分，写入 `votes.json.audience_reviews`。  
-- **假说对照**（`schema_version=4`，可选）：若存在假说目录（`--hypotheses` / `HYPOTHESES_PATH` / `data/hypotheses/{category}*.json`），对编号热点做 support|weaken|unrelated 对照，写入 `votes.json.hypothesis_reviews`；无文件则零次 LLM。  
+- **假说对照**（`schema_version=5`，可选）：若存在假说目录（`--hypotheses` / `HYPOTHESES_PATH` / `data/hypotheses/{category}*.json`，目录 schema v2 含 `source_refs`/`confidence`），对编号热点双跑（temperature 0.2/0.6）做 support|weaken|unrelated 对照；一致写入 `votes.json.hypothesis_reviews`（含 `evidence`/`strength`），不一致写入 `hypothesis_disputes`（不参与 settle）；无文件则零次 LLM。  
 - 回填 Excel「亮点投票」：`参考系 | 取景框 | 热点 | 品牌 | 机型 | 说明`。  
 - 回填 Excel「受众视角」：`受众 | 参考系 | 热点 | 品牌 | 机型 | 相关度 | 为什么关注 | 行动启示 | 风险与证据边界`。  
-- 回填 Excel「假说对照」：`假说ID | 命题摘要 | 立场 | 参考系 | 热点 | 品牌 | 机型 | 说明`。  
-- 失败语义：六票全空 → `failed`；六票可用但任一投票人/受众/假说对照失败 → `partial`（保留已有票）；六票与四受众均完成且假说无错（或未启用） → `ok`。  
+- 回填 Excel「假说对照」：`假说ID | 命题摘要 | 立场 | 参考系 | 热点 | 品牌 | 机型 | 证据锚点 | 强度 | 说明`。  
+- 失败语义：六票全空 → `failed`；六票可用但任一投票人/受众/假说对照失败或存在 disputes → `partial`（保留已有票）；六票与四受众均完成且假说无错/无争议（或未启用） → `ok`。  
 - 若 `input_revision` 变化 → 覆盖旧 `votes.json`，不与旧票合并。  
 - 不联网搜新机；缺少 `resolved.json` 或 `OPENAI_API_KEY` 则失败（不再 stub skip）。  
-- **跨 run 结算**（非 Stage）：`python -m terminal_insight_v2.cli ledger settle --hypothesis … --runs q1,q2,q3,q4 --out …` 读取多季 `votes.json`，对假说做确定性判决（confirmed/partial/falsified/insufficient），并搬运 OEM 高相关行动启示；产物为研究层 `settlement.json`，不得回写事实库。
+- **跨 run 结算**（非 Stage）：`python -m terminal_insight_v2.cli ledger settle --hypothesis … --runs q1,q2,q3,q4 --out …` 读取多季 `votes.json` 的 `hypothesis_reviews`，对假说做确定性判决（confirmed/partial/falsified/alert/insufficient；单季净 weaken≥3 且 ≥3 参考系 → alert），并搬运 OEM 高相关行动启示；产物为研究层 `settlement.json`，不得回写事实库。
+- **机型四象限**（非 Stage）：Vote 结束后写出 `quadrant.json` / `quadrant.html`（失败不翻 Vote 状态）；亦可 `python -m terminal_insight_v2.cli viz quadrant --run …`。默认轴为起售价 × 电池 mAh，页内可切充电 W；原点为本窗口落点中位数；价位带为视图规则。手机模板另拆 `电池容量` / `充电功率` 专用列以便后续抽取。
 
 ---
 

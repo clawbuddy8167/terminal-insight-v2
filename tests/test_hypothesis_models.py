@@ -1,4 +1,4 @@
-"""HypothesisSet load / stance validation."""
+"""HypothesisSet load / stance validation / catalog v2."""
 from __future__ import annotations
 
 import json
@@ -15,10 +15,17 @@ def test_load_phone_2026_catalog():
     path = Path(__file__).resolve().parents[1] / "data" / "hypotheses" / "phone-2026.json"
     assert path.is_file()
     hypo = load_hypothesis_set(path)
+    assert hypo.schema_version == 2
     assert hypo.year == 2026
     assert hypo.category == "phone"
     assert len(hypo.hypotheses) >= 8
     assert hypo.hypotheses[0].id == "H1"
+    ids = {h.id for h in hypo.hypotheses}
+    assert "H4a" in ids and "H4b" in ids
+    assert "H4" not in ids
+    h4a = next(h for h in hypo.hypotheses if h.id == "H4a")
+    assert h4a.source_refs
+    assert h4a.confidence in ("direct_quote", "inferred", "extrapolated")
 
 
 def test_duplicate_id_rejected(tmp_path: Path):
@@ -26,6 +33,7 @@ def test_duplicate_id_rejected(tmp_path: Path):
     path.write_text(
         json.dumps(
             {
+                "schema_version": 2,
                 "year": 2026,
                 "category": "phone",
                 "hypotheses": [
@@ -47,6 +55,36 @@ def test_invalid_stance_rejected():
             hypothesis_id="H1",
             hotspot_index=1,
             stance="maybe",  # type: ignore[arg-type]
+            evidence="x",
+        )
+
+
+def test_strength_clamped():
+    draft = HypothesisMappingDraft(
+        hypothesis_id="H1",
+        hotspot_index=1,
+        stance="support",
+        evidence="电池容量：10000mAh",
+        strength=9,
+    )
+    assert draft.strength == 3
+
+
+def test_invalid_confidence_rejected():
+    with pytest.raises(ValidationError):
+        HypothesisSet.model_validate(
+            {
+                "schema_version": 2,
+                "year": 2026,
+                "category": "phone",
+                "hypotheses": [
+                    {
+                        "id": "H1",
+                        "statement": "x",
+                        "confidence": "guess",
+                    }
+                ],
+            }
         )
 
 
@@ -58,6 +96,7 @@ def test_resolve_prefers_explicit(tmp_path: Path, monkeypatch):
     catalog.write_text(
         json.dumps(
             {
+                "schema_version": 2,
                 "year": 2026,
                 "category": "phone",
                 "hypotheses": [{"id": "H1", "statement": "x"}],

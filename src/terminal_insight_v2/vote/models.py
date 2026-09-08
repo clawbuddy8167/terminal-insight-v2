@@ -115,7 +115,7 @@ class AudienceReview(BaseModel):
 
 
 class VotesArtifact(BaseModel):
-    schema_version: int = 4
+    schema_version: int = 5
     run_id: str
     category: str
     schema_fingerprint: str = ""
@@ -125,6 +125,7 @@ class VotesArtifact(BaseModel):
     clusters: List[DirectionCluster] = Field(default_factory=list)
     audience_reviews: List[AudienceReview] = Field(default_factory=list)
     hypothesis_reviews: List[HypothesisReview] = Field(default_factory=list)
+    hypothesis_disputes: List[HypothesisReview] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
 
 

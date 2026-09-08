@@ -34,8 +34,12 @@ def map_entries(
     llm: LLMProvider,
     *,
     category: str = "",
-) -> Tuple[List[HypothesisReview], List[str]]:
-    """Map pre-built (voter_id, hotspot_dict) entries — Vote builds the dicts."""
+) -> Tuple[List[HypothesisReview], List[HypothesisReview], List[str]]:
+    """Map pre-built (voter_id, hotspot_dict) entries — Vote builds the dicts.
+
+    Returns (reviews, disputes, errors). Disputes are dual-pass disagreements
+    and must not enter settlement.
+    """
     return map_hypotheses(hypo_set, entries, llm, category=category)
 
 

@@ -19,8 +19,10 @@ def mapping_system(category: str) -> str:
 2. hotspot_index 使用清单中的 1-based 编号。
 3. stance 只能是 support / weaken / unrelated。
 4. 每个 (hypothesis_id, hotspot_index) 最多一条；无关可省略或标 unrelated。
-5. note 只能复述或压缩已有提名说明，禁止补写事实；可留空。
-6. 只输出 JSON：{{"mappings":[{{"hypothesis_id":"H1","hotspot_index":1,"stance":"support","note":"..."}}]}}
+5. evidence 必填：必须引用热点说明中的字段名与数值/卖点原文（如「电池容量：10000mAh」），禁止只写概括句。
+6. strength 为 1–3：3=证据直接对应假说判据，2=间接相关，1=弱相关。
+7. note 只能复述或压缩已有提名说明，禁止补写事实；可留空。
+8. 只输出 JSON：{{"mappings":[{{"hypothesis_id":"H1","hotspot_index":1,"stance":"support","evidence":"电池容量：10000mAh","strength":3,"note":"..."}}]}}
 """
 
 
@@ -44,8 +46,11 @@ def _format_hypothesis(h: Hypothesis) -> str:
     falsify = (h.falsify_when or "").strip()[:_NOTE_CHARS]
     frames = "、".join(h.frames) if h.frames else "—"
     leads = "；".join(h.lead_indicators[:4]) if h.lead_indicators else "—"
+    refs = "；".join(h.source_refs[:3]) if h.source_refs else "—"
     return (
         f"- {h.id}: {statement}\n"
+        f"  置信: {h.confidence}\n"
+        f"  原文: {refs}\n"
         f"  领先指标: {leads}\n"
         f"  证伪条件: {falsify or '—'}\n"
         f"  相关参考系: {frames}"

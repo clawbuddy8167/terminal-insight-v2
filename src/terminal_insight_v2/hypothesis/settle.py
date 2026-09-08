@@ -29,6 +29,7 @@ def settle_runs(
     """Load votes.json per run and produce deterministic verdicts.
 
     Missing votes.json → that quarter contributes nothing; verdict may be insufficient.
+    Dual-pass disputes live in hypothesis_disputes and are never read here.
     """
     root = runs_root or settings.runs_root()
     errors: List[str] = []
@@ -67,8 +68,12 @@ def settle_runs(
 
     settlements: List[HypothesisSettlement] = []
     for hypo in hypo_set.hypotheses:
-        quarters, reps = _quarter_stats(by_hypo.get(hypo.id, {}), resolved_runs)
-        verdict, note = _verdict_for(quarters)
+        quarters, reps, coverage = _quarter_stats(
+            by_hypo.get(hypo.id, {}), resolved_runs
+        )
+        verdict, note = _verdict_for(quarters, by_hypo.get(hypo.id, {}), resolved_runs)
+        if coverage:
+            note = f"{note}；参考系覆盖: {', '.join(coverage)}"
         settlements.append(
             HypothesisSettlement(
                 hypothesis_id=hypo.id,
@@ -76,6 +81,7 @@ def settle_runs(
                 verdict=verdict,
                 by_quarter=quarters,
                 representatives=reps[:5],
+                voter_coverage=coverage,
                 note=note,
             )
         )
@@ -124,14 +130,20 @@ def _oem_from_votes(run_id: str, data: dict) -> List[OemSliceItem]:
 def _quarter_stats(
     reviews_by_run: Dict[str, List[dict]],
     run_order: Sequence[str],
-) -> Tuple[List[QuarterStance], List[RepresentativeHotspot]]:
+) -> Tuple[List[QuarterStance], List[RepresentativeHotspot], List[str]]:
     quarters: List[QuarterStance] = []
     reps: List[RepresentativeHotspot] = []
+    coverage: List[str] = []
+    seen_voters: set[str] = set()
     for rid in run_order:
         rows = reviews_by_run.get(rid) or []
         counts = StanceCounts()
         for rev in rows:
             stance = str(rev.get("stance") or "")
+            voter = str(rev.get("voter_id") or "").strip()
+            if voter and voter not in seen_voters and stance in ("support", "weaken"):
+                seen_voters.add(voter)
+                coverage.append(voter)
             if stance == "support":
                 counts.support += 1
                 if len(reps) < 8:
@@ -142,7 +154,7 @@ def _quarter_stats(
                             brand=str(rev.get("brand") or ""),
                             model=str(rev.get("model") or ""),
                             stance="support",
-                            voter_id=str(rev.get("voter_id") or ""),
+                            voter_id=voter,
                         )
                     )
             elif stance == "weaken":
@@ -155,24 +167,29 @@ def _quarter_stats(
                             brand=str(rev.get("brand") or ""),
                             model=str(rev.get("model") or ""),
                             stance="weaken",
-                            voter_id=str(rev.get("voter_id") or ""),
+                            voter_id=voter,
                         )
                     )
             elif stance == "unrelated":
                 counts.unrelated += 1
         quarters.append(QuarterStance(run_id=rid, counts=counts))
-    return quarters, reps
+    return quarters, reps, coverage
 
 
-def _verdict_for(quarters: Sequence[QuarterStance]) -> Tuple[Verdict, str]:
-    """Deterministic rules from the plan.
+def _verdict_for(
+    quarters: Sequence[QuarterStance],
+    reviews_by_run: Dict[str, List[dict]],
+    run_order: Sequence[str],
+) -> Tuple[Verdict, str]:
+    """Deterministic rules.
+
+    Priority: falsified > confirmed > partial > alert > insufficient.
 
     - Count only support/weaken; unrelated ignored
-    - Quarters with net support (support > weaken)
-    - Quarters with net weaken (weaken > support)
-    - ≥2 net-support quarters and no consecutive net-weaken → confirmed
-      (if only 1 quarter has any support/weaken signal → partial)
     - ≥2 net-weaken quarters → falsified
+    - ≥2 net-support quarters and no consecutive net-weaken → confirmed
+    - Exactly 1 signaled quarter with net support → partial
+    - Single-quarter net weaken ≥3 with ≥3 distinct voter_ids → alert
     - else insufficient
     """
     net_support_runs: List[str] = []
@@ -211,7 +228,36 @@ def _verdict_for(quarters: Sequence[QuarterStance]) -> Tuple[Verdict, str]:
     if len(net_support_runs) >= 1 and consecutive_weaken:
         return "insufficient", "存在连续净削弱季度，未达确认门槛"
 
-    if len(net_support_runs) >= 2 and consecutive_weaken:
-        return "insufficient", "支持季度≥2但存在连续净削弱"
+    alert = _single_quarter_alert(reviews_by_run, run_order)
+    if alert is not None:
+        return alert
 
     return "insufficient", "支持/削弱信号不足"
+
+
+def _single_quarter_alert(
+    reviews_by_run: Dict[str, List[dict]],
+    run_order: Sequence[str],
+) -> Optional[Tuple[Verdict, str]]:
+    """Single-quarter strong weaken with multi-frame coverage → alert."""
+    for rid in run_order:
+        rows = reviews_by_run.get(rid) or []
+        weaken_voters: List[str] = []
+        support = 0
+        weaken = 0
+        for rev in rows:
+            stance = str(rev.get("stance") or "")
+            if stance == "support":
+                support += 1
+            elif stance == "weaken":
+                weaken += 1
+                voter = str(rev.get("voter_id") or "").strip()
+                if voter and voter not in weaken_voters:
+                    weaken_voters.append(voter)
+        if weaken > support and weaken >= 3 and len(weaken_voters) >= 3:
+            labels = "/".join(weaken_voters)
+            return (
+                "alert",
+                f"单季强削弱信号: weaken×{weaken}（{labels}），待下季确认",
+            )
+    return None

@@ -146,7 +146,7 @@ def test_vote_stage_writes_votes_and_excel(tmp_path: Path, monkeypatch):
     assert llm.call_count == 11
 
     data = json.loads((run_dir / "votes.json").read_text(encoding="utf-8"))
-    assert data["schema_version"] == 4
+    assert data["schema_version"] == 5
     assert data["hypothesis_reviews"] == []
     assert [v["voter_id"] for v in data["voters"]] == list(VOTER_IDS)
     assert data["clusters"][0]["voter_ids"]
