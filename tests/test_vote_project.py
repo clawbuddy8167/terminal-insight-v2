@@ -63,12 +63,53 @@ def test_project_drops_identity_and_missing():
     assert "M2" not in text
 
 
-def test_project_prefers_ctx_revision():
-    data = {"category": "phone", "input_revision": "old", "items": []}
+def test_project_key_spec_preferred_when_truncating():
+    items = []
+    for i, name in enumerate(
+        [
+            "前沿通信能力",
+            "声学与音频",
+            "智能传感与交互",
+            "AI底层能力",
+            "核心宣发亮点与差异化功能",
+            "发布时间",
+            "起售价",
+            "电池容量",
+            "充电功率",
+            "防水和防护",
+            "核心算力与存储",
+            "屏幕显示技术",
+            "功耗与续航管理",
+            "额外字段甲",
+            "额外字段乙",
+        ]
+    ):
+        items.append(
+            {
+                "device_id": "phone:a:m1",
+                "brand": "A",
+                "model": "M1",
+                "field_name": name,
+                "display_text": f"v{i}",
+                "policy": "unanimous",
+            }
+        )
+    data = {"category": "phone", "input_revision": "rev-2", "items": items}
+    key_specs = {
+        "起售价",
+        "电池容量",
+        "充电功率",
+        "防水和防护",
+        "核心算力与存储",
+        "屏幕显示技术",
+    }
     proj = project_resolved(
         data,
         source_path=Path("resolved.json"),
-        input_revision="from-ctx",
+        key_spec_names=key_specs,
     )
-    assert proj.input_revision == "from-ctx"
-    assert proj.devices == []
+    names = [n for n, _ in proj.devices[0].fields]
+    assert len(names) == 14
+    for k in key_specs:
+        assert k in names
+    assert "额外字段乙" not in names

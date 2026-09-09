@@ -194,6 +194,7 @@
     <button class="icon-btn" @click="openConfig">⚙ 配置</button>
     <button class="icon-btn" @click="openArtifact('excel')" :disabled="!progress.artifacts.excel">📋 Excel</button>
     <button class="icon-btn" @click="openArtifact('sources')" :disabled="!progress.artifacts.sources">🔗 信源</button>
+    <button class="icon-btn" @click="openArtifact('quadrant')" :disabled="!progress.artifacts.quadrant">▣ 四象限</button>
   </header>
 
   <div v-if="!progress.running && (progress.notice || progress.error)"

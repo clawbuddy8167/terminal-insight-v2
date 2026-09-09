@@ -5,12 +5,12 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Set
 
 IDENTITY_FIELDS = frozenset({"品牌", "机型"})
 SKIP_POLICIES = frozenset({"missing"})
 MAX_DEVICES = 48
-MAX_FIELDS_PER_DEVICE = 10
+MAX_FIELDS_PER_DEVICE = 14
 MAX_VALUE_CHARS = 180
 
 
@@ -53,14 +53,34 @@ def load_resolved(path: Path) -> Dict[str, Any]:
     return data
 
 
+def _trim_fields(
+    fields: List[tuple[str, str]],
+    *,
+    key_spec_names: Optional[Set[str]] = None,
+    limit: int = MAX_FIELDS_PER_DEVICE,
+) -> List[tuple[str, str]]:
+    """Keep key_spec fields first, then fill remaining slots in encounter order."""
+    if len(fields) <= limit:
+        return fields
+    keys = key_spec_names or set()
+    primary = [f for f in fields if f[0] in keys]
+    secondary = [f for f in fields if f[0] not in keys]
+    kept = primary[:limit]
+    if len(kept) < limit:
+        kept.extend(secondary[: limit - len(kept)])
+    return kept
+
+
 def project_resolved(
     data: Dict[str, Any],
     *,
     source_path: Path,
     category: str = "",
     input_revision: str = "",
+    key_spec_names: Optional[Sequence[str]] = None,
 ) -> VoteProjection:
     """Group non-empty spec fields by device; drop identity-only / missing noise."""
+    key_set: Set[str] = set(key_spec_names or ())
     grouped: Dict[str, DeviceCard] = {}
     for row in _items_from_resolved(data):
         did = str(row.get("device_id") or "").strip()
@@ -98,7 +118,7 @@ def project_resolved(
                 device_id=card.device_id,
                 brand=card.brand,
                 model=card.model,
-                fields=card.fields[:MAX_FIELDS_PER_DEVICE],
+                fields=_trim_fields(card.fields, key_spec_names=key_set),
             )
         )
     rev = (input_revision or "").strip() or revision_of(
@@ -129,12 +149,14 @@ def project_from_path(
     *,
     category: str = "",
     input_revision: str = "",
+    key_spec_names: Optional[Sequence[str]] = None,
 ) -> VoteProjection:
     return project_resolved(
         load_resolved(path),
         source_path=path,
         category=category,
         input_revision=input_revision,
+        key_spec_names=key_spec_names,
     )
 
 

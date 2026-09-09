@@ -382,7 +382,7 @@ class GuiApi:
         return {"ok": True, "run_id": rid, "items": items}
 
     def open_artifact(self, kind: str = "run_dir", run_id: str = "") -> Dict[str, Any]:
-        """Open excel / sources.html / run directory in the OS default app."""
+        """Open excel / sources.html / quadrant.html / run directory in the OS default app."""
         rid = (run_id or self._active_run_id or "").strip()
         run_dir = self._resolve_run_dir(rid) if rid else None
         if not run_dir or not run_dir.is_dir():
@@ -396,6 +396,8 @@ class GuiApi:
             target = Path(arts["excel"]) if arts.get("excel") else None
         elif kind in ("sources", "sources.html"):
             target = Path(arts["sources"]) if arts.get("sources") else None
+        elif kind in ("quadrant", "quadrant.html"):
+            target = Path(arts["quadrant"]) if arts.get("quadrant") else None
         else:
             return {"ok": False, "error": f"未知产物类型: {kind}"}
 
@@ -443,6 +445,9 @@ class GuiApi:
         votes = run_dir / "votes.json"
         if votes.exists():
             out["votes"] = str(votes)
+        quadrant = run_dir / "quadrant.html"
+        if quadrant.exists():
+            out["quadrant"] = str(quadrant)
         # Prefer path recorded in steps.json
         steps_path = run_dir / "steps.json"
         if steps_path.exists():
@@ -454,6 +459,8 @@ class GuiApi:
                         out["excel"] = str(arts["excel"])
                     if arts.get("sources.html") and Path(arts["sources.html"]).exists():
                         out["sources"] = str(arts["sources.html"])
+                    if arts.get("quadrant.html") and Path(arts["quadrant.html"]).exists():
+                        out["quadrant"] = str(arts["quadrant.html"])
             except Exception:
                 pass
         return out

@@ -1,6 +1,7 @@
 """Map numbered hotspots onto a HypothesisSet via dual-pass LLM consensus."""
 from __future__ import annotations
 
+import time
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from terminal_insight_v2.providers.llm import LLMProvider
@@ -17,6 +18,9 @@ from .prompts import mapping_system, mapping_user, numbered_hotspot_lines
 _NOTE_CHARS = 400
 _EVIDENCE_CHARS = 400
 _PASS_TEMPERATURES = (0.2, 0.6)
+_PASS_OUTER_RETRIES = 4
+_PASS_MAX_TOKENS = 16384
+_PASS_PARSE_RETRIES = 5
 
 
 def map_hypotheses(
@@ -41,28 +45,65 @@ def map_hypotheses(
     system = mapping_system(category or hypo_set.category)
     user = mapping_user(hypo_set, lines)
     passes: List[List[HypothesisReview]] = []
-    try:
-        for temp in _PASS_TEMPERATURES:
-            payload = llm.chat_json(
-                system,
-                user,
-                HypothesisMappingPayload,
-                temperature=temp,
-                max_tokens=8192,
-            )
-            stamped = _sanitize(payload.mappings, entries, known_ids, by_id)
+    errors: List[str] = []
+    for pass_no, temp in enumerate(_PASS_TEMPERATURES, start=1):
+        stamped, err = _run_mapping_pass(
+            llm,
+            system,
+            user,
+            temperature=temp,
+            entries=entries,
+            known_ids=known_ids,
+            by_id=by_id,
+        )
+        if stamped is None:
+            errors.append(f"hypothesis: pass{pass_no} (temp={temp}): {err}")
+            passes.append([])
+        else:
             passes.append(stamped)
-    except Exception as exc:  # noqa: BLE001
-        return [], [], [f"hypothesis: {exc}"]
+
+    if not any(passes):
+        return [], [], errors or ["hypothesis: all passes failed"]
 
     reviews, disputes = _consensus(passes[0], passes[1])
     if not reviews and not disputes and any(passes):
         total = sum(len(p) for p in passes)
-        return [], [], [
+        rejected = (
             f"hypothesis: all {total} mappings rejected "
             f"(hotspots={len(entries)}, hypotheses={len(known_ids)})"
-        ]
-    return reviews, disputes, []
+        )
+        return [], [], errors + [rejected]
+    return reviews, disputes, errors
+
+
+def _run_mapping_pass(
+    llm: LLMProvider,
+    system: str,
+    user: str,
+    *,
+    temperature: float,
+    entries: Sequence[Tuple[str, dict]],
+    known_ids: set[str],
+    by_id: dict,
+) -> Tuple[Optional[List[HypothesisReview]], str]:
+    """Run one dual-pass temperature with outer retries (API flakiness)."""
+    last_err = "unknown"
+    for attempt in range(_PASS_OUTER_RETRIES):
+        try:
+            payload = llm.chat_json(
+                system,
+                user,
+                HypothesisMappingPayload,
+                temperature=temperature,
+                max_tokens=_PASS_MAX_TOKENS,
+                parse_retries=_PASS_PARSE_RETRIES,
+            )
+            return _sanitize(payload.mappings, entries, known_ids, by_id), ""
+        except Exception as exc:  # noqa: BLE001
+            last_err = str(exc)
+            if attempt + 1 < _PASS_OUTER_RETRIES:
+                time.sleep(min(8.0, 0.6 * (attempt + 1)))
+    return None, last_err
 
 
 def _consensus(

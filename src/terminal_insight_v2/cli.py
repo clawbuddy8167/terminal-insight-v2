@@ -123,6 +123,31 @@ def _cmd_ledger_settle(args: argparse.Namespace) -> int:
     return 0 if not artifact.errors else 0  # missing quarters are soft errors
 
 
+def _cmd_viz_quadrant(args: argparse.Namespace) -> int:
+    from terminal_insight_v2.quadrant.api import write_for_run
+
+    run_id = (args.run or "").strip()
+    if not run_id:
+        console.print("[red]--run 需要 run_id[/]")
+        return 2
+    run_dir = settings.runs_root() / run_id
+    if not run_dir.is_dir():
+        console.print(f"[red]run 目录不存在: {run_dir}[/]")
+        return 2
+    try:
+        artifact, json_path, html_path = write_for_run(run_dir)
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"[red]quadrant failed: {exc}[/]")
+        return 1
+    console.print(
+        f"ok points={len(artifact.points)} watt_points={len(artifact.points_watt)} "
+        f"skipped={len(artifact.skipped)}"
+    )
+    console.print(f"wrote {json_path}")
+    console.print(f"wrote {html_path}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="terminal-insight-v2",
@@ -190,6 +215,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="output directory for settlement.json / settlement.xlsx",
     )
     settle_p.set_defaults(func=_cmd_ledger_settle)
+
+    viz = sub.add_parser("viz", help="Research visualizations (not a pipeline stage)")
+    viz_sub = viz.add_subparsers(dest="viz_cmd", required=True)
+    quad_p = viz_sub.add_parser(
+        "quadrant",
+        help="Build CCC-slice device quadrant map for one run",
+    )
+    quad_p.add_argument("--run", required=True, help="run_id under data/runs/")
+    quad_p.set_defaults(func=_cmd_viz_quadrant)
 
     gui = sub.add_parser("gui", help="Open local desktop GUI (PyWebView)")
     gui.set_defaults(func=_cmd_gui)
