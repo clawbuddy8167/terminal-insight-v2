@@ -118,10 +118,15 @@ class LLMProvider:
         if thinking:
             create_kwargs["reasoning_effort"] = "high"
             create_kwargs["extra_body"] = {"thinking": {"type": "enabled"}}
+        else:
+            # v4-flash thinks by default and can spend the whole budget before content.
+            create_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
         try:
             resp = client.chat.completions.create(**create_kwargs)
         except BadRequestError:
             create_kwargs.pop("response_format", None)
+            create_kwargs.pop("extra_body", None)
+            create_kwargs.pop("reasoning_effort", None)
             resp = client.chat.completions.create(**create_kwargs)
         choice = resp.choices[0]
         return (choice.message.content or "").strip(), getattr(choice, "finish_reason", "") or ""

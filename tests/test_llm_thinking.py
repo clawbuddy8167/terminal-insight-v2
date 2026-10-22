@@ -41,7 +41,7 @@ def test_complete_passes_thinking_params_when_enabled():
     assert kwargs["response_format"] == {"type": "json_object"}
 
 
-def test_complete_omits_thinking_params_by_default():
+def test_complete_disables_thinking_by_default():
     settings = Settings(_env_file=None, openai_api_key="test-key")
     provider = LLMProvider(settings)
     mock_client = MagicMock()
@@ -66,7 +66,7 @@ def test_complete_omits_thinking_params_by_default():
 
     kwargs = mock_client.chat.completions.create.call_args.kwargs
     assert "reasoning_effort" not in kwargs
-    assert "extra_body" not in kwargs
+    assert kwargs["extra_body"] == {"thinking": {"type": "disabled"}}
 
 
 def test_chat_json_thinking_bumps_tokens_on_empty_length():

@@ -17,15 +17,22 @@ from terminal_insight_v2.providers.search import SearchProvider, format_hits_for
 console = Console()
 
 
+_ENGLISH_PRODUCT = {
+    "phone": "smartphone",
+    "watch": "smartwatch",
+    "glasses": "AI glasses",
+}
+
+
 def build_discovery_queries(schema: CategorySchema, date_start: str, date_end: str) -> List[str]:
     product = schema.discovery.product
+    english = _ENGLISH_PRODUCT.get(schema.category_id, product)
     queries = [
         f"{date_start}到{date_end}发布的{product}新品 上市",
         f"{date_start} {date_end} {product} 发布会 新品",
-        # Global / English coverage
-        f"smartwatch launched {date_start} {date_end}",
-        f"new smartwatch release {date_start} to {date_end}",
-        f"全球 智能手表 {date_start}到{date_end} 发布 新品",
+        f"{english} launched {date_start} {date_end}",
+        f"new {english} release {date_start} to {date_end}",
+        f"全球 {product} {date_start}到{date_end} 发布 新品",
     ]
     for brand in schema.discovery.search_brands[:10]:
         queries.append(f"{brand} {product} {date_start}到{date_end} 发布")

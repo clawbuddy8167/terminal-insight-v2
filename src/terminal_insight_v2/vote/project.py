@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Set
 
 IDENTITY_FIELDS = frozenset({"品牌", "机型"})
 SKIP_POLICIES = frozenset({"missing"})
-MAX_DEVICES = 48
+MAX_DEVICES = 128
 MAX_FIELDS_PER_DEVICE = 14
 MAX_VALUE_CHARS = 180
 
